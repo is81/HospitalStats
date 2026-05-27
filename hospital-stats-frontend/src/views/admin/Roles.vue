@@ -1,0 +1,132 @@
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import { adminApi, type RoleInfo } from '../../api/admin';
+import { queryApi, type MenuItem } from '../../api/query';
+
+const roles = ref<RoleInfo[]>([]);
+const menus = ref<MenuItem[]>([]);
+const loading = ref(false);
+const dialogVisible = ref(false);
+const editingRole = ref<RoleInfo | null>(null);
+const form = ref({ name: '', description: '', menuIds: [] as number[] });
+
+async function loadData() {
+  loading.value = true;
+  try {
+    const [rRes, mRes] = await Promise.all([adminApi.getRoles(), queryApi.getMenus()]);
+    roles.value = rRes.data;
+    menus.value = mRes.data;
+  } finally {
+    loading.value = false;
+  }
+}
+
+function openDialog(role?: RoleInfo) {
+  if (role) {
+    editingRole.value = role;
+    form.value = { name: role.name, description: role.description || '', menuIds: [...role.menuIds] };
+  } else {
+    editingRole.value = null;
+    form.value = { name: '', description: '', menuIds: [] };
+  }
+  dialogVisible.value = true;
+}
+
+async function saveRole() {
+  if (!form.value.name) { ElMessage.warning('请输入角色名'); return; }
+  try {
+    if (editingRole.value) {
+      await adminApi.updateRole(editingRole.value.id, form.value);
+      ElMessage.success('已更新');
+    } else {
+      await adminApi.createRole(form.value);
+      ElMessage.success('已创建');
+    }
+    dialogVisible.value = false;
+    await loadData();
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.message || '操作失败');
+  }
+}
+
+async function deleteRole(id: number) {
+  try {
+    await ElMessageBox.confirm('确定删除该角色？', '确认', { type: 'warning' });
+    await adminApi.deleteRole(id);
+    ElMessage.success('已删除');
+    await loadData();
+  } catch { /* cancelled */ }
+}
+
+function getMenuName(menuId: number): string {
+  function find(items: typeof menus.value): string {
+    for (const m of items) {
+      if (m.id === menuId) return m.name;
+      if (m.children.length > 0) {
+        const found = find(m.children);
+        if (found) return found;
+      }
+    }
+    return '';
+  }
+  return find(menus.value);
+}
+
+onMounted(loadData);
+</script>
+
+<template>
+  <div>
+    <div style="margin-bottom: 16px">
+      <el-button type="primary" @click="openDialog()">新增角色</el-button>
+    </div>
+
+    <el-table :data="roles" v-loading="loading" border stripe>
+      <el-table-column prop="name" label="角色名" width="140" />
+      <el-table-column prop="description" label="描述" min-width="150" />
+      <el-table-column label="菜单权限" min-width="300">
+        <template #default="{ row }">
+          <el-tag v-for="mid in row.menuIds" :key="mid" size="small" style="margin:2px">
+            {{ getMenuName(mid) }}
+          </el-tag>
+          <span v-if="!row.menuIds.length" style="color:#c0c4cc">未分配</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" width="160">
+        <template #default="{ row }">
+          <el-button size="small" @click="openDialog(row)">编辑</el-button>
+          <el-button size="small" type="danger" @click="deleteRole(row.id)"
+            v-if="row.name !== 'admin'">删除</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <el-dialog v-model="dialogVisible"
+      :title="editingRole ? '编辑角色' : '新增角色'" width="540px">
+      <el-form :model="form" label-width="80px">
+        <el-form-item label="名称" required>
+          <el-input v-model="form.name" :disabled="editingRole?.name === 'admin'" />
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input v-model="form.description" />
+        </el-form-item>
+        <el-form-item label="菜单权限">
+          <el-tree
+            :data="menus"
+            show-checkbox
+            node-key="id"
+            :props="{ label: 'name', children: 'children' }"
+            :default-checked-keys="form.menuIds"
+            @check="(_node: any, checked: any) => { form.menuIds = checked.checkedKeys as number[]; }"
+            default-expand-all
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveRole">保存</el-button>
+      </template>
+    </el-dialog>
+  </div>
+</template>
