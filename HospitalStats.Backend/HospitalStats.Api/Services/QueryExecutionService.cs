@@ -110,13 +110,16 @@ public class QueryExecutionService
         sw.Stop();
 
         var columns = new List<string>();
+        var colDisplayMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var field in config.Fields.OrderBy(f => f.SortOrder))
         {
             var col = field.MetaColumn;
             if (col == null) continue;
+            var sqlAlias = col.ColumnName ?? "";
             var displayName = !string.IsNullOrEmpty(field.Alias) ? field.Alias
                 : !string.IsNullOrEmpty(col.Alias) ? col.Alias
                 : col.ColumnName ?? "";
+            colDisplayMap[sqlAlias] = displayName;
             columns.Add(displayName);
         }
 
@@ -133,7 +136,9 @@ public class QueryExecutionService
                 {
                     val = ConvertEncoding(strVal, charSetOverride);
                 }
-                dict[prop.Key] = val;
+                // Remap from SQL column name to display name
+                var key = colDisplayMap.TryGetValue(prop.Key, out var display) ? display : prop.Key;
+                dict[key] = val;
             }
             resultRows.Add(dict);
         }
@@ -305,11 +310,24 @@ public class QueryExecutionService
                 innerSql += $" ORDER BY {orderBy}";
         }
 
-        // Oracle 10g ROWNUM pagination
+        // Oracle 10g ROWNUM pagination (explicit columns to avoid t.* column name loss)
         var startRow = (page - 1) * pageSize + 1;
         var endRow = page * pageSize;
 
-        var paginatedSql = $"SELECT * FROM (SELECT t.*, ROWNUM rn FROM ({innerSql}) t WHERE ROWNUM <= :p_endRow) WHERE rn >= :p_startRow";
+        string outerCols;
+        if (!string.IsNullOrEmpty(rawSql) && !HasUserFilterInput(config, userFilters))
+        {
+            outerCols = "*";
+        }
+        else
+        {
+            var cols = config.Fields.OrderBy(f => f.SortOrder)
+                .Select(f => $"\"{f.MetaColumn?.ColumnName ?? "COL"}\"")
+                .ToList();
+            outerCols = string.Join(", ", cols);
+        }
+
+        var paginatedSql = $"SELECT {outerCols} FROM (SELECT t.*, ROWNUM rn FROM ({innerSql}) t WHERE ROWNUM <= :p_endRow) WHERE rn >= :p_startRow";
 
         var extraParams = new Dictionary<string, object?>
         {
@@ -345,10 +363,8 @@ public class QueryExecutionService
             if (!string.IsNullOrEmpty(field.AggregateFunc))
                 colExpr = $"{field.AggregateFunc}({colExpr})";
 
-            var label = !string.IsNullOrEmpty(field.Alias) ? field.Alias
-                : !string.IsNullOrEmpty(col.Alias) ? col.Alias
-                : !string.IsNullOrEmpty(col.ColumnName) ? col.ColumnName
-                : "COL";
+            // Use column name as SQL alias — ASCII-safe for Oracle 10g
+            var label = col.ColumnName ?? "COL";
             parts.Add($"{colExpr} AS \"{label}\"");
         }
 
@@ -499,7 +515,8 @@ public class QueryExecutionService
                 (!string.IsNullOrEmpty(displayAlias) &&
                  sortCol.Equals($"{ta}.{displayAlias}", StringComparison.OrdinalIgnoreCase)))
             {
-                return displayAlias;
+                // Always return column name — SQL aliases are ASCII column names
+                return col.ColumnName;
             }
         }
         return null;

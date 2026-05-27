@@ -170,7 +170,7 @@ public class QueryExecutionServiceTests
         };
 
         var result = QueryExecutionService.BuildSelectClause(config);
-        Assert.Equal("\"T\".\"PATIENT_NAME\" AS \"姓名\"", result);
+        Assert.Equal("\"T\".\"PATIENT_NAME\" AS \"PATIENT_NAME\"", result);
     }
 
     [Fact]
@@ -195,7 +195,7 @@ public class QueryExecutionServiceTests
         };
 
         var result = QueryExecutionService.BuildSelectClause(config);
-        Assert.Equal("COUNT(\"T\".\"ID\") AS \"cnt\"", result);
+        Assert.Equal("COUNT(\"T\".\"ID\") AS \"ID\"", result);
     }
 
     [Fact]

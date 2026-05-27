@@ -1,0 +1,100 @@
+1.数据结构
+1.1门诊病历记录OUTP_MR
+字段中文名称	字段名	类型	长度	说明
+病人标识号	PATIENT_ID	C	10	
+就诊时间	VISIT_DATE	D		挂号的日期时间，由挂号预约系统提供
+就诊序号	VISIT_NO	N	4	唯一标识一天内的某次就诊，由挂号预约系统提供
+主诉	ILLNESS_DESC	C	200	
+既往史	ANAMNESIS	C	80	
+家族史	FAMILY_ILL	C	80	
+婚姻史	MARRITAL	C	4	
+个人史	INDIVIDUDL	C	80	
+月经史	MENSES	C	80	
+简要病史	MED_HISTORY	C	2000	
+查体	BODY_EXAM	C	1000	
+诊断	DIAG_DESC	C	80	
+嘱咐	ADVICE	C	600	
+医生	DOCTOR	C	8	
+注释：病人每次就诊产生一条记录。
+主键：就诊时间，就诊序号。
+
+1.2门诊病人诊疗费用项目 OUTP_BILL_ITEMS_DOCTOR
+字段中文名称	字段名	类型	长度	说明
+就诊日期	VISIT_DATE	D		与就诊号一起构成一次就诊标识
+就诊序号	VISIT_NO	N	4	
+收据号	RCPT_NO	C	8	可选，由发票管理系统填入
+序号	ITEM_NO	N	2	按就诊日期及就诊号分组排序
+价表项目分类	ITEM_CLASS	C	1	该项目对应价表的分类，使用代码，由本系统定义，见6.8价表项目分类字典
+收据项目分类	CLASS_ON_RCPT	C	1	该收费项目所属收据项目分类代码，用户定义，见6.10门诊收据费用分类字典
+项目代码	ITEM_CODE	C	10	用户定义，见6.1价表
+项目名称	ITEM_NAME	C	40	防止项目代码变化而保留
+项目规格	ITEM_SPEC	C	20	可为材料的规格或项目的定价条件
+数量	AMOUNT	N	6,2	当为检查检验项目时，一般为1，当为材料等项目时，可大于1。
+单位	UNITS	C	8	为项目的计量单位，如人次
+执行科室	PERFORMED_BY	C	8	科室代码，用户定义，见2.6科室字典
+费用	COSTS	N	8,2	按价表计算得到的费用
+应付费用	CHARGES	N	8,2	考虑费别等因素后的实际应支付费用
+	CFLAG	C	1	科华检验加
+明细项目单价	UNIT_PRICE	N	7.3	四期医保
+明细项目分类支付金额	FL_ITEM_COSTS	N	7.3	四期医保
+明细项目医保交易总额	JY_ITEM_COSTS	N	7.3	分类支付金额+医保交易总额=医保结算范围总额
+处方编号	PREC_NO	N	4	四期医保
+医生工号	DOCTOR_NO	V	4	
+发药标志				0，1
+注释：本表为门诊病人费用的明细记录。每次就诊约产生3项费用。
+主键：就诊日期、就诊序号、序号。
+
+
+
+1.3诊室候诊排队记录OUTP_WAIT_QUEUE
+字段中文名称	字段名	类型	长度	说明
+分诊科室	REGISTER_DEPT	C	8	
+队列名	QUEUE_NAME	C	16	
+排队序号	QUEUE_SEQUENCE	N	2,0	
+就诊序号	VISIT_NO	N	4	
+就诊时间	VISIT_DATE	D		
+分诊日期	REGISTER_DATE	D		
+已处理标志	WORKED_INDICATOR	N	1	用来区分该候诊病人是否已处理，由医生接诊后将此标志置为1。定期将此类记录删除
+病人姓名	NAME			
+				
+注释：本记录由分诊挂号时产生，门诊医生接诊后定期删除。
+　　　主键：分诊科室，诊室名，排队序号，就诊日期
+
+1.4科室常用药品
+字段中文名称	字段名	类型	长度	说明
+诊断描述	DIANOSIS	C	80	
+药品编码	DRUG_CODE	C	10	
+科室编码	DEPT_CODE	C	8	
+注释：本表记录了科室的常用药品，由科室内医生开处方时共同使用。
+　　　主键：诊断描述、药品编码
+　　　
+　　　
+
+1.5治疗方案模板主记录TREAT_PROJECT _MASTER
+字段中文名称	字段名	类型	长度	说明
+治疗模板标识	TREAT_PROJECT_ID	C	6	唯一标识模板
+标题	TITLE	C	40	描述治疗方案的名称
+科室	DEPT_CODE	C	8	使用此模板的科室
+诊断描述	DIAGNOSIS	C	80	该模板适用的诊断描述
+建议	ADVICE	C	600	可以是药品的剂量、检查处置的次数
+创建者	CREATOR	C	8	创建者的数据库用户名
+注释：此表为治疗方案模板的主记录,用于定义各种常规治疗方案模板，以便于用户输入治疗方案。该模板分别由各自科室定义与使用。
+　　　主键：治疗方案模板标识。
+
+1.6治疗方案模板明细TREAT_PROJECT _ITEMS
+字段中文名称	字段名	类型	长度	说明
+治疗模板标识	TREAT_PROJECT_ID	C	6	唯一标识模板
+序号	ITEM_NO	N	2	该治疗方案中医嘱的序号
+医嘱类别	ORDER_CLASS	C	1	为药疗、检查、检验、处置、手术等
+医嘱内容	ORDER_TEXT	C	80	描述医嘱的内容
+医嘱代码	ORDER_CODE	C	10	
+数量	AMOUNT	N	4	可以是药品的剂量、检查处置的次数
+规格	SPEC	C	20	
+单位	UNITS	C	8	对应上面的数量的单位
+一次用量	DOSAGE	N	8,4	单次用药量
+给药途径	ADMINISTRATION	C	16	如为药品，描述用药方法
+执行频率描述	FREQUENCY	C	16	执行的频度的描述
+注释：此表为治疗方案模板主记录的明细记录，包含了方案中各医嘱的主要内容。
+主键：治疗方案模板标识、序号。
+
+
