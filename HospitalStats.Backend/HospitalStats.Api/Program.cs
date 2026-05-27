@@ -8,10 +8,6 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
 
-// Force Oracle client character set BEFORE any Oracle code loads.
-// Must be set at process AND system level for ODP.NET managed driver.
-Environment.SetEnvironmentVariable("NLS_LANG", "SIMPLIFIED CHINESE_CHINA.ZHS16GBK");
-
 var logPath = Path.Combine(AppContext.BaseDirectory, "logs", "app-.log");
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
