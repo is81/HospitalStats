@@ -495,6 +495,10 @@ public class QueryExecutionService
         if (!string.IsNullOrEmpty(label))
             return $"\"{label}\" {dir}";
 
+        // SortColumn not found in fields — if it contains non-ASCII, skip ORDER BY
+        if (config.SortColumn.Any(c => c > 127))
+            return "";
+
         return $"{QuoteQualifiedName(config.SortColumn)} {dir}";
     }
 
@@ -515,10 +519,27 @@ public class QueryExecutionService
                 (!string.IsNullOrEmpty(displayAlias) &&
                  sortCol.Equals($"{ta}.{displayAlias}", StringComparison.OrdinalIgnoreCase)))
             {
-                // Always return column name — SQL aliases are ASCII column names
                 return col.ColumnName;
             }
         }
+
+        // Second pass: match just the column part (e.g. "OUTP_MR.病人ID" → match "病人ID" against display alias)
+        var lastDot = sortCol.LastIndexOf('.');
+        var colPart = lastDot >= 0 ? sortCol[(lastDot + 1)..] : sortCol;
+        foreach (var field in config.Fields)
+        {
+            var col = field.MetaColumn;
+            if (col == null) continue;
+            var displayAlias = !string.IsNullOrEmpty(field.Alias) ? field.Alias
+                : !string.IsNullOrEmpty(col.Alias) ? col.Alias
+                : col.ColumnName ?? "";
+            if (colPart.Equals(col.ColumnName ?? "", StringComparison.OrdinalIgnoreCase) ||
+                colPart.Equals(displayAlias, StringComparison.OrdinalIgnoreCase))
+            {
+                return col.ColumnName;
+            }
+        }
+
         return null;
     }
 
