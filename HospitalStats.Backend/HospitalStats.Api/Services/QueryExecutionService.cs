@@ -143,15 +143,15 @@ public class QueryExecutionService
             resultRows.Add(dict);
         }
 
-        // Diagnose encoding on first row if garbled text detected
+        // Diagnose encoding on first row
         if (resultRows.Count > 0)
         {
             var firstRow = resultRows[0];
             foreach (var (key, val) in firstRow)
             {
-                if (val is string s && s.Any(c => c > 127 && c < 256))
+                if (val is string s && s.Length > 0)
                 {
-                    DiagnoseEncoding(s, _logger);
+                    DiagnoseEncoding($"{key}={s}", _logger);
                     break;
                 }
             }
@@ -715,13 +715,15 @@ public class QueryExecutionService
 
     internal static string? DiagnoseEncoding(string input, ILogger logger)
     {
-        if (string.IsNullOrEmpty(input) || input.All(c => c < 128))
+        if (string.IsNullOrEmpty(input))
             return null;
 
         var latin1 = Encoding.GetEncoding("iso-8859-1");
         var rawBytes = latin1.GetBytes(input);
         var hex = Convert.ToHexString(rawBytes.Take(20).ToArray());
-        logger.LogWarning("Encoding diagnosis: input len={Len}, first 20 bytes hex={Hex}", input.Length, hex);
+        var hasHigh = rawBytes.Any(b => b > 127);
+        logger.LogWarning("Encoding diagnosis: input={Input}, len={Len}, hasHighBytes={HasHigh}, first 20 hex={Hex}",
+            input[..Math.Min(input.Length, 40)], input.Length, hasHigh, hex);
 
         // Try common Chinese encodings and log results
         foreach (var encName in new[] { "gb2312", "gbk", "gb18030", "big5", "utf-8" })
