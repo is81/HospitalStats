@@ -143,6 +143,20 @@ public class QueryExecutionService
             resultRows.Add(dict);
         }
 
+        // Diagnose encoding on first row if garbled text detected
+        if (resultRows.Count > 0)
+        {
+            var firstRow = resultRows[0];
+            foreach (var (key, val) in firstRow)
+            {
+                if (val is string s && s.Any(c => c > 127 && c < 256))
+                {
+                    DiagnoseEncoding(s, _logger);
+                    break;
+                }
+            }
+        }
+
         // Fallback: if no fields configured (RawSql), extract columns from result keys
         if (columns.Count == 0 && resultRows.Count > 0)
         {
@@ -675,22 +689,54 @@ public class QueryExecutionService
 
     /// <summary>
     /// Fix garbled Chinese text from Oracle US7ASCII databases.
-    /// Oracle returns each byte as a character; ISO-8859-1 preserves byte values 1:1.
-    /// We recover the raw bytes, then reinterpret them as the real encoding (GBK/GB2312/etc.).
+    /// Oracle stores multi-byte Chinese as individual bytes; when retrieved via
+    /// ODP.NET without NLS_LANG, each byte is interpreted as a Latin-1 character.
+    /// We recover raw bytes via ISO-8859-1 and re-decode with the real encoding.
     /// </summary>
     internal static string ConvertEncoding(string input, string sourceEncoding)
     {
+        if (string.IsNullOrEmpty(input)) return input;
         try
         {
             var latin1 = Encoding.GetEncoding("iso-8859-1");
             var rawBytes = latin1.GetBytes(input);
             var srcEnc = Encoding.GetEncoding(sourceEncoding);
-            return srcEnc.GetString(rawBytes);
+            var result = srcEnc.GetString(rawBytes);
+            // Only return the result if it actually changed and looks valid
+            if (result != input && result.Any(c => c > 127))
+                return result;
+            return input;
         }
         catch
         {
             return input;
         }
+    }
+
+    internal static string? DiagnoseEncoding(string input, ILogger logger)
+    {
+        if (string.IsNullOrEmpty(input) || input.All(c => c < 128))
+            return null;
+
+        var latin1 = Encoding.GetEncoding("iso-8859-1");
+        var rawBytes = latin1.GetBytes(input);
+        var hex = Convert.ToHexString(rawBytes.Take(20).ToArray());
+        logger.LogWarning("Encoding diagnosis: input len={Len}, first 20 bytes hex={Hex}", input.Length, hex);
+
+        // Try common Chinese encodings and log results
+        foreach (var encName in new[] { "gb2312", "gbk", "gb18030", "big5", "utf-8" })
+        {
+            try
+            {
+                var enc = Encoding.GetEncoding(encName);
+                var decoded = enc.GetString(rawBytes);
+                var hasChinese = decoded.Any(c => c >= 0x4E00 && c <= 0x9FFF);
+                logger.LogInformation("  Try {Enc}: hasChinese={HasCN}, sample={Sample}",
+                    encName, hasChinese, decoded[..Math.Min(20, decoded.Length)]);
+            }
+            catch { }
+        }
+        return null;
     }
 }
 
