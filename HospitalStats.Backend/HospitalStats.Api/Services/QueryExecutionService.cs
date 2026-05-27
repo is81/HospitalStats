@@ -673,13 +673,19 @@ public class QueryExecutionService
         return $"query_{Convert.ToHexString(hash).ToLowerInvariant()}";
     }
 
-    internal static string ConvertEncoding(string input, string targetEncoding)
+    /// <summary>
+    /// Fix garbled Chinese text from Oracle US7ASCII databases.
+    /// Oracle returns each byte as a character; ISO-8859-1 preserves byte values 1:1.
+    /// We recover the raw bytes, then reinterpret them as the real encoding (GBK/GB2312/etc.).
+    /// </summary>
+    internal static string ConvertEncoding(string input, string sourceEncoding)
     {
         try
         {
-            var enc = Encoding.GetEncoding(targetEncoding);
-            var bytes = enc.GetBytes(input);
-            return Encoding.UTF8.GetString(Encoding.Convert(enc, Encoding.UTF8, bytes));
+            var latin1 = Encoding.GetEncoding("iso-8859-1");
+            var rawBytes = latin1.GetBytes(input);
+            var srcEnc = Encoding.GetEncoding(sourceEncoding);
+            return srcEnc.GetString(rawBytes);
         }
         catch
         {

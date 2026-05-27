@@ -181,8 +181,10 @@ onMounted(loadList);
           <el-select v-model="form.charSetOverride" placeholder="自动检测（推荐）" clearable
             style="width: 100%">
             <el-option label="自动检测" value="" />
-            <el-option label="GBK" value="GBK" />
-            <el-option label="UTF-8" value="UTF-8" />
+            <el-option label="GBK" value="gbk" />
+            <el-option label="GB2312" value="gb2312" />
+            <el-option label="ISO-8859-1" value="iso-8859-1" />
+            <el-option label="UTF-8" value="utf-8" />
           </el-select>
         </el-form-item>
         <el-form-item>
