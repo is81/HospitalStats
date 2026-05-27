@@ -131,10 +131,13 @@ public class QueryExecutionService
             foreach (var prop in (IDictionary<string, object?>)row)
             {
                 var val = prop.Value;
-                // US7ASCII encoding fix: if value is string and charSet is overridden
-                if (val is string strVal && charSetOverride != null)
+                // US7ASCII encoding fix: recover raw bytes via ISO-8859-1,
+                // then re-decode with the real Chinese encoding.
+                if (val is string strVal && strVal.Any(c => c > 127 || c == '?'))
                 {
-                    val = ConvertEncoding(strVal, charSetOverride);
+                    var fixedVal = ConvertEncoding(strVal, charSetOverride);
+                    if (fixedVal != strVal)
+                        val = fixedVal;
                 }
                 // Remap from SQL column name to display name
                 var key = colDisplayMap.TryGetValue(prop.Key, out var display) ? display : prop.Key;
@@ -689,22 +692,35 @@ public class QueryExecutionService
 
     /// <summary>
     /// Fix garbled Chinese text from Oracle US7ASCII databases.
-    /// Oracle stores multi-byte Chinese as individual bytes; when retrieved via
-    /// ODP.NET without NLS_LANG, each byte is interpreted as a Latin-1 character.
+    /// NLS_LANG=WE8ISO8859P1 ensures raw bytes pass through 1:1 as Latin-1 chars.
     /// We recover raw bytes via ISO-8859-1 and re-decode with the real encoding.
     /// </summary>
-    internal static string ConvertEncoding(string input, string sourceEncoding)
+    internal static string ConvertEncoding(string input, string? sourceEncoding)
     {
         if (string.IsNullOrEmpty(input)) return input;
         try
         {
             var latin1 = Encoding.GetEncoding("iso-8859-1");
             var rawBytes = latin1.GetBytes(input);
-            var srcEnc = Encoding.GetEncoding(sourceEncoding);
-            var result = srcEnc.GetString(rawBytes);
-            // Only return the result if it actually changed and looks valid
-            if (result != input && result.Any(c => c > 127))
-                return result;
+
+            if (!string.IsNullOrEmpty(sourceEncoding))
+            {
+                var srcEnc = Encoding.GetEncoding(sourceEncoding);
+                return srcEnc.GetString(rawBytes);
+            }
+
+            // Auto-detect: try common Chinese encodings, return first that produces Chinese
+            foreach (var encName in new[] { "gbk", "gb2312", "gb18030" })
+            {
+                try
+                {
+                    var enc = Encoding.GetEncoding(encName);
+                    var result = enc.GetString(rawBytes);
+                    if (result.Any(c => c >= 0x4E00 && c <= 0x9FFF))
+                        return result;
+                }
+                catch { }
+            }
             return input;
         }
         catch

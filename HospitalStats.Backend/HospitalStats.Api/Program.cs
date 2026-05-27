@@ -8,9 +8,11 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
 
-// Explicitly unset NLS_LANG so ODP.NET passes raw bytes through unchanged.
-// Oracle US7ASCII → no conversion → raw bytes → we decode in ConvertEncoding.
-Environment.SetEnvironmentVariable("NLS_LANG", null);
+// Use WE8ISO8859P1 (8-bit Latin-1) as client charset.
+// US7ASCII DB → WE8ISO8859P1 client preserves all byte values 0-255.
+// Each raw byte becomes the corresponding Latin-1 character in .NET,
+// which our ConvertEncoding then recovers and re-decodes as GBK.
+Environment.SetEnvironmentVariable("NLS_LANG", "AMERICAN_AMERICA.WE8ISO8859P1");
 
 var logPath = Path.Combine(AppContext.BaseDirectory, "logs", "app-.log");
 Log.Logger = new LoggerConfiguration()
