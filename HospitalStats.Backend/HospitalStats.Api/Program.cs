@@ -8,6 +8,11 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
 
+// Force Oracle client character set BEFORE any Oracle code loads.
+// Oracle US7ASCII databases store Chinese as raw bytes; setting NLS_LANG
+// tells ODP.NET to convert them to the correct encoding on retrieval.
+Environment.SetEnvironmentVariable("NLS_LANG", "SIMPLIFIED CHINESE_CHINA.ZHS16GBK");
+
 var logPath = Path.Combine(AppContext.BaseDirectory, "logs", "app-.log");
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
