@@ -8,6 +8,10 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
 
+// Explicitly unset NLS_LANG so ODP.NET passes raw bytes through unchanged.
+// Oracle US7ASCII → no conversion → raw bytes → we decode in ConvertEncoding.
+Environment.SetEnvironmentVariable("NLS_LANG", null);
+
 var logPath = Path.Combine(AppContext.BaseDirectory, "logs", "app-.log");
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
