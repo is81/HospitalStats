@@ -448,6 +448,16 @@ public class SqlParsingService
         if (dateMatch.Success)
             return dateMatch.Groups[1].Value;
 
+        // DATE literal: DATE'2026-05-01'
+        var dateLiteralMatch = Regex.Match(rawValue, @"^DATE\s*'([^']*)'\s*$", RegexOptions.IgnoreCase);
+        if (dateLiteralMatch.Success)
+            return dateLiteralMatch.Groups[1].Value;
+
+        // TIMESTAMP literal: TIMESTAMP'2026-05-01 00:00:00'
+        var tsLiteralMatch = Regex.Match(rawValue, @"^TIMESTAMP\s*'([^']*)'\s*$", RegexOptions.IgnoreCase);
+        if (tsLiteralMatch.Success)
+            return tsLiteralMatch.Groups[1].Value;
+
         // Quoted string
         if (rawValue.StartsWith("'"))
         {
