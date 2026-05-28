@@ -19,3 +19,13 @@ public class LoginResponse
     public List<int> MenuIds { get; set; } = new();
     public string? DeptName { get; set; }
 }
+
+public class ChangePasswordRequest
+{
+    [Required]
+    public string OldPassword { get; set; } = string.Empty;
+
+    [Required]
+    [MinLength(6, ErrorMessage = "新密码至少6位")]
+    public string NewPassword { get; set; } = string.Empty;
+}

@@ -323,7 +323,7 @@ public class SqlParsingServiceTests
 
         Assert.Single(result);
         Assert.Equal("VISITS", result[0].JoinTableName);
-        Assert.Equal("LEFT", result[0].JoinType);
+        Assert.Equal("INNER", result[0].JoinType);
     }
 
     [Fact]
@@ -466,5 +466,258 @@ public class SqlParsingServiceTests
     {
         var result = SqlParsingService.ExtractDefaultValue(input);
         Assert.Equal(expected, result);
+    }
+
+    // ===== Helper methods =====
+
+    [Theory]
+    [InlineData("hello", true)]
+    [InlineData("_valid", true)]
+    [InlineData("A1", true)]
+    [InlineData("1invalid", false)]
+    [InlineData("", false)]
+    public void IsValidIdentifier_ChecksCorrectly(string input, bool expected)
+    {
+        Assert.Equal(expected, SqlParsingService.IsValidIdentifier(input));
+    }
+
+    [Theory]
+    [InlineData("func(a,b)", true)]
+    [InlineData("func(a,b", false)]
+    [InlineData(")a(", false)]
+    [InlineData("no parens", true)]
+    public void HasBalancedParentheses_ChecksCorrectly(string input, bool expected)
+    {
+        Assert.Equal(expected, SqlParsingService.HasBalancedParentheses(input));
+    }
+
+    [Theory]
+    [InlineData("func('hello world')", true)]
+    [InlineData("unclosed 'quote", false)]
+    [InlineData("no quotes", true)]
+    [InlineData("'nested''quote'", true)]
+    public void HasBalancedQuotes_ChecksCorrectly(string input, bool expected)
+    {
+        Assert.Equal(expected, SqlParsingService.HasBalancedQuotes(input));
+    }
+
+    // ===== Complex SELECT column parsing =====
+
+    [Fact]
+    public void ParseSelectColumns_FunctionWithImplicitAlias_ExtractsAlias()
+    {
+        var selectClause = "to_char(P.BILLING_DATE, 'yyyy') sj";
+        var columns = new List<MetaColumn>
+        {
+            new() { ColumnName = "BILLING_DATE", MetaTable = new MetaTable { Alias = "P" } }
+        };
+        var aliasMap = new Dictionary<string, string> { ["P"] = "PATIENTS" };
+
+        var result = SqlParsingService.ParseSelectColumns(selectClause, columns, aliasMap);
+
+        Assert.Single(result);
+        Assert.Equal("sj", result[0].Alias);
+        Assert.True(result[0].Matched);
+    }
+
+    [Fact]
+    public void ParseSelectColumns_AggregateCaseWithImplicitAlias_ExtractsBoth()
+    {
+        var selectClause = "sum(case when a.item_class='A' then a.costs end) yp";
+        var columns = new List<MetaColumn>
+        {
+            new() { ColumnName = "ITEM_CLASS", MetaTable = new MetaTable { Alias = "A" } },
+            new() { ColumnName = "COSTS", MetaTable = new MetaTable { Alias = "A" } }
+        };
+        var aliasMap = new Dictionary<string, string> { ["A"] = "INP_BILL_DETAIL" };
+
+        var result = SqlParsingService.ParseSelectColumns(selectClause, columns, aliasMap);
+
+        Assert.Single(result);
+        Assert.Equal("yp", result[0].Alias);
+        Assert.Equal("SUM", result[0].AggregateFunc);
+        Assert.True(result[0].Matched);
+    }
+
+    [Fact]
+    public void ParseSelectColumns_QuotedChineseAlias_ExtractsAlias()
+    {
+        var selectClause = "sum(a.costs) \"总费用\"";
+        var columns = new List<MetaColumn>
+        {
+            new() { ColumnName = "COSTS", MetaTable = new MetaTable { Alias = "A" } }
+        };
+        var aliasMap = new Dictionary<string, string> { ["A"] = "INP_BILL_DETAIL" };
+
+        var result = SqlParsingService.ParseSelectColumns(selectClause, columns, aliasMap);
+
+        Assert.Single(result);
+        Assert.Equal("总费用", result[0].Alias);
+        Assert.Equal("SUM", result[0].AggregateFunc);
+        Assert.True(result[0].Matched);
+    }
+
+    [Fact]
+    public void ParseSelectColumns_NestedFunctionQuotedAlias_MatchesColumn()
+    {
+        var selectClause = "trunc(months_between(cm.ADMISSION_DATE, a.DATE_OF_BIRTH)/12) \"年龄\"";
+        var columns = new List<MetaColumn>
+        {
+            new() { ColumnName = "ADMISSION_DATE", MetaTable = new MetaTable { Alias = "CM" } },
+            new() { ColumnName = "DATE_OF_BIRTH", MetaTable = new MetaTable { Alias = "A" } }
+        };
+        var aliasMap = new Dictionary<string, string> { ["CM"] = "PAT_VISIT", ["A"] = "PAT_MASTER_INDEX" };
+
+        var result = SqlParsingService.ParseSelectColumns(selectClause, columns, aliasMap);
+
+        Assert.Single(result);
+        Assert.Equal("年龄", result[0].Alias);
+        Assert.True(result[0].Matched);
+    }
+
+    [Fact]
+    public void ParseSelectColumns_FunctionNoAlias_MatchesColumnInExpr()
+    {
+        var selectClause = "to_char(P.BILLING_DATE, 'yyyy')";
+        var columns = new List<MetaColumn>
+        {
+            new() { ColumnName = "BILLING_DATE", MetaTable = new MetaTable { Alias = "P" } }
+        };
+        var aliasMap = new Dictionary<string, string> { ["P"] = "PATIENTS" };
+
+        var result = SqlParsingService.ParseSelectColumns(selectClause, columns, aliasMap);
+
+        Assert.Single(result);
+        Assert.True(result[0].Matched);
+    }
+
+    [Fact]
+    public void ParseSelectColumns_SimpleQualifiedAlias_StillWorks()
+    {
+        // Verify existing behavior still works after reorder
+        var selectClause = "\"P\".\"PATIENT_NAME\" AS \"姓名\"";
+        var columns = new List<MetaColumn>
+        {
+            new() { ColumnName = "PATIENT_NAME", MetaTable = new MetaTable { Alias = "P" } }
+        };
+        var aliasMap = new Dictionary<string, string> { ["P"] = "PATIENTS" };
+
+        var result = SqlParsingService.ParseSelectColumns(selectClause, columns, aliasMap);
+
+        Assert.Single(result);
+        Assert.Equal("姓名", result[0].Alias);
+        Assert.True(result[0].Matched);
+    }
+
+    [Fact]
+    public void ParseSelectColumns_AggregateAsAlias_StillWorks()
+    {
+        // Verify COUNT(P.ID) still works after reorder
+        var selectClause = "COUNT(\"P\".\"ID\")";
+        var columns = new List<MetaColumn>
+        {
+            new() { ColumnName = "ID", MetaTable = new MetaTable { Alias = "P" } }
+        };
+        var aliasMap = new Dictionary<string, string> { ["P"] = "PATIENTS" };
+
+        var result = SqlParsingService.ParseSelectColumns(selectClause, columns, aliasMap);
+
+        Assert.Single(result);
+        Assert.Equal("COUNT", result[0].AggregateFunc);
+        Assert.True(result[0].Matched);
+    }
+
+    // ===== MatchColumnInExpr =====
+
+    [Fact]
+    public void MatchColumnInExpr_FindsColumnInFunctionArgs()
+    {
+        var columns = new List<MetaColumn>
+        {
+            new() { ColumnName = "BILLING_DATE", MetaTable = new MetaTable { Alias = "A", TableName = "INP_BILL_DETAIL" } }
+        };
+        var aliasMap = new Dictionary<string, string> { ["a"] = "INP_BILL_DETAIL" };
+
+        var result = SqlParsingService.MatchColumnInExpr("to_char(a.billing_date, 'yyyy')", columns, aliasMap);
+
+        Assert.NotNull(result);
+        Assert.Equal("BILLING_DATE", result!.ColumnName);
+    }
+
+    [Fact]
+    public void MatchColumnInExpr_NoMatch_ReturnsNull()
+    {
+        var columns = new List<MetaColumn>();
+        var aliasMap = new Dictionary<string, string>();
+
+        var result = SqlParsingService.MatchColumnInExpr("some_func(x, y)", columns, aliasMap);
+
+        Assert.Null(result);
+    }
+
+    // ===== UNION and subquery handling =====
+
+    [Fact]
+    public void ParseWhereFilters_SkipsSubqueryConditions()
+    {
+        var whereClause = "\"P\".\"DEPT\" = '内科' AND \"P\".\"ID\" IN (SELECT patient_id FROM pat_master_index WHERE id_no = '123')";
+        var columns = new List<MetaColumn>
+        {
+            new() { ColumnName = "DEPT", MetaTable = new MetaTable { Alias = "P" } }
+        };
+        var aliasMap = new Dictionary<string, string> { ["P"] = "PATIENTS" };
+
+        var result = SqlParsingService.ParseWhereFilters(whereClause, columns, aliasMap);
+
+        // Only the simple condition should be parsed; subquery condition is skipped
+        Assert.Single(result);
+        Assert.Equal("EQ", result[0].Operator);
+        Assert.Equal("内科", result[0].DefaultValue);
+    }
+
+    // ===== ParseWhereFilters: no space after operator =====
+
+    [Fact]
+    public void ParseWhereFilters_NoSpaceAfterOperator_Gte()
+    {
+        var whereClause = "\"A\".\"BILLING_DATE_TIME\">=TO_DATE('2026-05-01','YYYY-MM-DD')";
+        var columns = new List<MetaColumn>
+        {
+            new()
+            {
+                ColumnName = "BILLING_DATE_TIME",
+                MetaTable = new MetaTable { Alias = "A" }
+            }
+        };
+        var aliasMap = new Dictionary<string, string> { ["A"] = "INP_BILL_DETAIL" };
+
+        var result = SqlParsingService.ParseWhereFilters(whereClause, columns, aliasMap);
+
+        Assert.Single(result);
+        Assert.Equal("GTE", result[0].Operator);
+        Assert.Equal("2026-05-01", result[0].DefaultValue);
+        Assert.True(result[0].Matched);
+    }
+
+    [Fact]
+    public void ParseWhereFilters_NoSpaceAfterOperator_Lt()
+    {
+        var whereClause = "\"A\".\"BILLING_DATE_TIME\" <TO_DATE('2026-06-01','YYYY-MM-DD')";
+        var columns = new List<MetaColumn>
+        {
+            new()
+            {
+                ColumnName = "BILLING_DATE_TIME",
+                MetaTable = new MetaTable { Alias = "A" }
+            }
+        };
+        var aliasMap = new Dictionary<string, string> { ["A"] = "INP_BILL_DETAIL" };
+
+        var result = SqlParsingService.ParseWhereFilters(whereClause, columns, aliasMap);
+
+        Assert.Single(result);
+        Assert.Equal("LT", result[0].Operator);
+        Assert.Equal("2026-06-01", result[0].DefaultValue);
+        Assert.True(result[0].Matched);
     }
 }

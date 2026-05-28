@@ -24,8 +24,21 @@ public class SqlParsingService
         if (Regex.IsMatch(sql, @"\bSELECT\s+\*", RegexOptions.IgnoreCase))
             throw new ArgumentException("不支持 SELECT *，请展开为具体列名");
 
+        if (Regex.IsMatch(sql, @"\bSELECT\s+\*", RegexOptions.IgnoreCase))
+            throw new ArgumentException("不支持 SELECT *，请展开为具体列名");
+
         if (!Regex.IsMatch(sql, @"\bSELECT\b", RegexOptions.IgnoreCase))
             throw new ArgumentException("请输入有效的 SELECT 查询语句");
+
+        // UNION queries: execute as rawSql without parsing
+        if (Regex.IsMatch(sql, @"\bUNION\s+(ALL\s+)?SELECT\b", RegexOptions.IgnoreCase))
+        {
+            return new SqlParseResponse
+            {
+                RawSql = sql,
+                UnsupportedPattern = "UNION"
+            };
+        }
 
         var selectPart = ExtractBetween(sql, "SELECT", "FROM");
         var fromPart = ExtractBetween(sql, "FROM", @"WHERE|GROUP\s+BY|ORDER\s+BY|HAVING|$");
@@ -94,8 +107,22 @@ public class SqlParsingService
         // parse WHERE filters (excluding join conditions)
         response.Filters = ParseWhereFilters(wherePart, allColumns, aliasToTableName);
 
-        // detect JOIN relationships from WHERE clause (multi-table)
-        response.Joins = ParseJoins(wherePart, allColumns, aliasToTableName, tableMap);
+        // extract ON conditions from explicit JOIN syntax in FROM clause
+        var onConditions = new List<string>();
+        foreach (Match onBlock in Regex.Matches(fromPart,
+            @"\bON\s+(.+?)(?=\b(?:JOIN|LEFT|RIGHT|INNER|OUTER|FULL|CROSS|WHERE|GROUP\s+BY|ORDER\s+BY|HAVING)\b|$)",
+            RegexOptions.IgnoreCase))
+        {
+            var onText = onBlock.Groups[1].Value;
+            foreach (var c in SplitConditions(onText))
+                onConditions.Add(c.Trim());
+        }
+
+        // detect JOIN relationships from ON conditions + WHERE clause (multi-table)
+        var joinPart = string.Join(" AND ", onConditions);
+        if (!string.IsNullOrEmpty(wherePart))
+            joinPart = (string.IsNullOrEmpty(joinPart) ? wherePart : joinPart + " AND " + wherePart);
+        response.Joins = ParseJoins(joinPart, allColumns, aliasToTableName, tableMap);
 
         // GROUP BY
         if (!string.IsNullOrEmpty(groupByPart))
@@ -117,6 +144,27 @@ public class SqlParsingService
             .Select(c => c.Expression ?? c.Alias ?? "")
             .Where(s => !string.IsNullOrEmpty(s))
             .ToList();
+
+        // Strip matched filter conditions from rawSql to prevent US7ASCII double-filtering.
+        // Inner rawSql keeps only JOIN conditions; outer WHERE applies hex-encoded filters correctly.
+        var filterTexts = new HashSet<string>(
+            response.Filters
+                .Where(f => f.Matched && !string.IsNullOrEmpty(f.OriginalText))
+                .Select(f => f.OriginalText!.Trim()),
+            StringComparer.OrdinalIgnoreCase);
+
+        if (filterTexts.Count > 0 && !string.IsNullOrEmpty(wherePart))
+        {
+            var allConditions = SplitConditions(wherePart);
+            var remainingConditions = allConditions
+                .Where(c => !filterTexts.Contains(c.Trim()))
+                .ToList();
+
+            string newWherePart = string.Join(" AND ", remainingConditions);
+            response.RawSql = BuildSql(selectPart, fromPart,
+                string.IsNullOrEmpty(newWherePart) ? null : newWherePart,
+                groupByPart, orderByPart);
+        }
 
         return response;
     }
@@ -207,12 +255,11 @@ public class SqlParsingService
             var trimmed = part.Trim();
             if (string.IsNullOrEmpty(trimmed)) continue;
 
-            var (aggregateFunc, innerExpr) = ExtractAggregateFunc(trimmed);
-
+            // Step 1: extract alias first (before aggregate extraction)
             string? alias = null;
-            var exprWithoutAlias = innerExpr;
+            var exprWithoutAlias = trimmed;
 
-            var asMatch = Regex.Match(innerExpr, @"^(.*?)\s+AS\s+""?(\w+)""?\s*$", RegexOptions.IgnoreCase);
+            var asMatch = Regex.Match(trimmed, @"^(.*?)\s+AS\s+""?(\w+)""?\s*$", RegexOptions.IgnoreCase);
             if (asMatch.Success)
             {
                 exprWithoutAlias = asMatch.Groups[1].Value.Trim();
@@ -220,13 +267,22 @@ public class SqlParsingService
             }
             else
             {
-                var implicitMatch = Regex.Match(innerExpr, @"^(.+)\s+(""?[a-zA-Z_]\w*""?)\s*$");
+                // implicit alias: "expr alias" or expr "alias"
+                var implicitMatch = Regex.Match(trimmed,
+                    @"^(.+)\s+(""([^""]+)""|(""?[a-zA-Z_]\w*""?))\s*$");
                 if (implicitMatch.Success)
                 {
-                    var possibleAlias = implicitMatch.Groups[2].Value.Trim('"');
                     var expr = implicitMatch.Groups[1].Value.Trim();
-                    if (Regex.IsMatch(possibleAlias, @"^[a-zA-Z_]\w*$")
-                        && !Regex.IsMatch(expr, @"[""']|\)$|^\("))
+                    bool isQuoted = implicitMatch.Groups[3].Success;
+                    string possibleAlias;
+                    if (isQuoted)
+                        possibleAlias = implicitMatch.Groups[3].Value;          // quoted: accept anything
+                    else
+                        possibleAlias = implicitMatch.Groups[4].Value.Trim('"'); // unquoted: identifier
+
+                    if ((isQuoted || IsValidIdentifier(possibleAlias))
+                        && HasBalancedParentheses(expr)
+                        && HasBalancedQuotes(expr))
                     {
                         exprWithoutAlias = expr;
                         alias = possibleAlias;
@@ -234,7 +290,12 @@ public class SqlParsingService
                 }
             }
 
-            var colMatch = MatchColumn(exprWithoutAlias.Trim('"'), allColumns, aliasToTableName);
+            // Step 2: extract aggregate function from alias-stripped expression
+            var (aggregateFunc, innerExpr) = ExtractAggregateFunc(exprWithoutAlias);
+
+            // Step 3: match column — try exact match first, then extract from complex expression
+            var colMatch = MatchColumn(innerExpr.Trim('"'), allColumns, aliasToTableName)
+                        ?? MatchColumnInExpr(innerExpr, allColumns, aliasToTableName);
 
             result.Add(new SqlColumnMatch
             {
@@ -272,6 +333,10 @@ public class SqlParsingService
             var trimmed = cond.Trim();
             if (string.IsNullOrEmpty(trimmed)) continue;
 
+            // Skip subquery conditions: keep them in rawSql, don't parse as filters
+            if (Regex.IsMatch(trimmed, @"\bSELECT\b", RegexOptions.IgnoreCase))
+                continue;
+
             // Handle NOT operator prefix
             var notPrefix = false;
             if (trimmed.ToUpperInvariant().StartsWith("NOT "))
@@ -283,14 +348,14 @@ public class SqlParsingService
             // Match qualified column: alias.column OP value
             // Supports: =, !=, <>, >, >=, <, <=, LIKE, NOT LIKE, IN, NOT IN, BETWEEN, NOT BETWEEN
             var m = Regex.Match(trimmed,
-                @"^""?(\w+)""?\s*\.\s*""?(\w+)""?\s*(>=|<=|!=|<>|>|<|=|(?:NOT\s+)?LIKE|(?:NOT\s+)?IN|(?:NOT\s+)?BETWEEN)\s+(.+)$",
+                @"^""?(\w+)""?\s*\.\s*""?(\w+)""?\s*(>=|<=|!=|<>|>|<|=|(?:NOT\s+)?LIKE|(?:NOT\s+)?IN|(?:NOT\s+)?BETWEEN)\s*(.+)$",
                 RegexOptions.IgnoreCase);
 
             if (!m.Success)
             {
                 // Try unqualified column
                 m = Regex.Match(trimmed,
-                    @"^""?(\w+)""?\s*(>=|<=|!=|<>|>|<|=|(?:NOT\s+)?LIKE|(?:NOT\s+)?IN|(?:NOT\s+)?BETWEEN)\s+(.+)$",
+                    @"^""?(\w+)""?\s*(>=|<=|!=|<>|>|<|=|(?:NOT\s+)?LIKE|(?:NOT\s+)?IN|(?:NOT\s+)?BETWEEN)\s*(.+)$",
                     RegexOptions.IgnoreCase);
             }
 
@@ -333,7 +398,8 @@ public class SqlParsingService
                 Operator = op,
                 DefaultValue = ExtractDefaultValue(rawValue),
                 Label = col?.Alias ?? col?.ColumnName ?? columnName,
-                Matched = col != null
+                Matched = col != null,
+                OriginalText = cond.Trim()
             });
         }
 
@@ -481,8 +547,37 @@ public class SqlParsingService
             }
             else
             {
-                // Neither is main table — skip
-                continue;
+                // Check if either side is a known table (main or already-joined)
+                var knownTables = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { mainTableName };
+                foreach (var r in result)
+                {
+                    if (r.JoinTableName != null)
+                        knownTables.Add(r.JoinTableName);
+                }
+
+                bool leftKnown = leftTable != null && knownTables.Contains(leftTable);
+                bool rightKnown = rightTable != null && knownTables.Contains(rightTable);
+
+                if (leftKnown && !rightKnown)
+                {
+                    leftMetaColumnId = leftMeta?.Id;
+                    leftColumnName = leftMeta?.ColumnName ?? leftCol;
+                    rightMetaColumnId = rightMeta?.Id;
+                    rightColumnName = rightMeta?.ColumnName ?? rightCol;
+                    joinTableName = rightTable;
+                }
+                else if (rightKnown && !leftKnown)
+                {
+                    leftMetaColumnId = rightMeta?.Id;
+                    leftColumnName = rightMeta?.ColumnName ?? rightCol;
+                    rightMetaColumnId = leftMeta?.Id;
+                    rightColumnName = leftMeta?.ColumnName ?? leftCol;
+                    joinTableName = leftTable;
+                }
+                else
+                {
+                    continue;
+                }
             }
 
             if (joinTableName != null && tableMap.TryGetValue(joinTableName, out var joinMetaTable))
@@ -492,7 +587,7 @@ public class SqlParsingService
             {
                 JoinTableId = joinTableId,
                 JoinTableName = joinTableName,
-                JoinType = "LEFT",
+                JoinType = "INNER",
                 LeftMetaColumnId = leftMetaColumnId,
                 LeftColumnName = leftColumnName,
                 RightMetaColumnId = rightMetaColumnId,
@@ -611,5 +706,73 @@ public class SqlParsingService
 
         parts.Add(whereClause[start..]);
         return parts.Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
+    }
+
+    internal static string BuildSql(string selectPart, string fromPart,
+        string? wherePart, string? groupByPart, string? orderByPart)
+    {
+        var sql = $"SELECT {selectPart} FROM {fromPart}";
+        if (!string.IsNullOrEmpty(wherePart))
+            sql += $" WHERE {wherePart}";
+        if (!string.IsNullOrEmpty(groupByPart))
+            sql += $" GROUP BY {groupByPart}";
+        if (!string.IsNullOrEmpty(orderByPart))
+            sql += $" ORDER BY {orderByPart}";
+        return sql;
+    }
+
+    // ===== Helper methods for alias validation =====
+
+    internal static bool IsValidIdentifier(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return false;
+        // Must start with letter or underscore, then word chars (Unicode-aware)
+        return Regex.IsMatch(s, @"^[a-zA-Z_]\w*$");
+    }
+
+    internal static bool HasBalancedParentheses(string expr)
+    {
+        int depth = 0;
+        foreach (var ch in expr)
+        {
+            if (ch == '(') depth++;
+            else if (ch == ')') depth--;
+            if (depth < 0) return false;
+        }
+        return depth == 0;
+    }
+
+    internal static bool HasBalancedQuotes(string expr)
+    {
+        bool inQuote = false;
+        foreach (var ch in expr)
+        {
+            if (ch == '\'') inQuote = !inQuote;
+        }
+        return !inQuote;
+    }
+
+    /// <summary>
+    /// When MatchColumn fails (expression is not a simple alias.column),
+    /// search inside the expression for qualified column references.
+    /// Returns the first matched MetaColumn.
+    /// </summary>
+    internal static MetaColumn? MatchColumnInExpr(
+        string expr, List<MetaColumn> allColumns,
+        Dictionary<string, string> aliasToTableName)
+    {
+        // Search for alias.column patterns inside complex expressions
+        var matches = Regex.Matches(expr, @"\b(""?(\w+)""?)\s*\.\s*(""?(\w+)""?)\b");
+        foreach (Match m in matches)
+        {
+            var alias = m.Groups[2].Value;
+            var colName = m.Groups[4].Value;
+            if (!string.IsNullOrEmpty(colName))
+            {
+                var result = MatchColumnByName(colName, alias, allColumns, aliasToTableName);
+                if (result != null) return result;
+            }
+        }
+        return null;
     }
 }

@@ -311,7 +311,8 @@ public class QueryController : ControllerBase
             JoinType = j.JoinType,
             LeftMetaColumnId = j.LeftMetaColumnId,
             RightMetaColumnId = j.RightMetaColumnId,
-            SortOrder = j.SortOrder
+            SortOrder = j.SortOrder,
+            LeftDateTrunc = j.LeftDateTrunc
         }).ToList();
     }
 
@@ -389,7 +390,8 @@ public class QueryController : ControllerBase
             LeftColumnName = j.LeftMetaColumn?.ColumnName,
             RightMetaColumnId = j.RightMetaColumnId,
             RightColumnName = j.RightMetaColumn?.ColumnName,
-            SortOrder = j.SortOrder
+            SortOrder = j.SortOrder,
+            LeftDateTrunc = j.LeftDateTrunc
         }).ToList()
     };
 }

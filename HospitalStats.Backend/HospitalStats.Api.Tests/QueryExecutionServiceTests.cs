@@ -1,7 +1,9 @@
 ﻿using System.Security.Claims;
+using System.Text;
 using HospitalStats.Api.Models;
 using HospitalStats.Api.Services;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -9,6 +11,11 @@ namespace HospitalStats.Api.Tests;
 
 public class QueryExecutionServiceTests
 {
+    static QueryExecutionServiceTests()
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+    }
+
     // ===== OperatorToSql =====
 
     [Theory]
@@ -72,14 +79,16 @@ public class QueryExecutionServiceTests
 
     // ===== BuildCacheKey =====
 
+    private static readonly DateTime TestDate = new(2026, 5, 27, 12, 0, 0);
+
     [Fact]
     public void BuildCacheKey_SameInputs_ProducesSameKey()
     {
         var filters = new Dictionary<string, string> { ["1"] = "abc" };
         var ctx = new Dictionary<string, string> { ["DeptName"] = "内科" };
 
-        var key1 = QueryExecutionService.BuildCacheKey(42, filters, 1, 50, ctx);
-        var key2 = QueryExecutionService.BuildCacheKey(42, filters, 1, 50, ctx);
+        var key1 = QueryExecutionService.BuildCacheKey(42, filters, 1, 50, ctx, TestDate);
+        var key2 = QueryExecutionService.BuildCacheKey(42, filters, 1, 50, ctx, TestDate);
 
         Assert.Equal(key1, key2);
     }
@@ -91,8 +100,8 @@ public class QueryExecutionServiceTests
         var ctx1 = new Dictionary<string, string> { ["DeptName"] = "内科" };
         var ctx2 = new Dictionary<string, string> { ["DeptName"] = "眼科" };
 
-        var key1 = QueryExecutionService.BuildCacheKey(42, filters, 1, 50, ctx1);
-        var key2 = QueryExecutionService.BuildCacheKey(42, filters, 1, 50, ctx2);
+        var key1 = QueryExecutionService.BuildCacheKey(42, filters, 1, 50, ctx1, TestDate);
+        var key2 = QueryExecutionService.BuildCacheKey(42, filters, 1, 50, ctx2, TestDate);
 
         Assert.NotEqual(key1, key2);
     }
@@ -103,8 +112,20 @@ public class QueryExecutionServiceTests
         var filters = new Dictionary<string, string>();
         var ctx = new Dictionary<string, string>();
 
-        var key1 = QueryExecutionService.BuildCacheKey(42, filters, 1, 50, ctx);
-        var key2 = QueryExecutionService.BuildCacheKey(42, filters, 2, 50, ctx);
+        var key1 = QueryExecutionService.BuildCacheKey(42, filters, 1, 50, ctx, TestDate);
+        var key2 = QueryExecutionService.BuildCacheKey(42, filters, 2, 50, ctx, TestDate);
+
+        Assert.NotEqual(key1, key2);
+    }
+
+    [Fact]
+    public void BuildCacheKey_DifferentUpdatedAt_ProducesDifferentKeys()
+    {
+        var filters = new Dictionary<string, string>();
+        var ctx = new Dictionary<string, string>();
+
+        var key1 = QueryExecutionService.BuildCacheKey(42, filters, 1, 50, ctx, TestDate);
+        var key2 = QueryExecutionService.BuildCacheKey(42, filters, 1, 50, ctx, TestDate.AddMinutes(1));
 
         Assert.NotEqual(key1, key2);
     }
@@ -258,10 +279,11 @@ public class QueryExecutionServiceTests
         var contextValues = new Dictionary<string, string>();
 
         var service = CreateService();
-        var result = service.BuildWhereClause(config, userFilters, contextValues);
+        var pv = new Dictionary<string, string>();
+        var result = service.BuildWhereClause(config, userFilters, contextValues, pv);
 
         Assert.Contains("\"T\".\"COL1\" = :p_f_1", result);
-        Assert.Contains("test_value", userFilters["1"]);
+        Assert.Contains("test_value", pv["1"]);
     }
 
     [Fact]
@@ -272,10 +294,11 @@ public class QueryExecutionServiceTests
         var contextValues = new Dictionary<string, string>();
 
         var service = CreateService();
-        var result = service.BuildWhereClause(config, userFilters, contextValues);
+        var pv = new Dictionary<string, string>();
+        var result = service.BuildWhereClause(config, userFilters, contextValues, pv);
 
         Assert.Contains("\"T\".\"COL1\" = :p_f_1", result);
-        Assert.Equal("default_val", userFilters["1"]);
+        Assert.Equal("default_val", pv["1"]);
     }
 
     [Fact]
@@ -286,7 +309,8 @@ public class QueryExecutionServiceTests
         var contextValues = new Dictionary<string, string>();
 
         var service = CreateService();
-        var result = service.BuildWhereClause(config, userFilters, contextValues);
+        var pv = new Dictionary<string, string>();
+        var result = service.BuildWhereClause(config, userFilters, contextValues, pv);
 
         Assert.Empty(result);
     }
@@ -300,10 +324,11 @@ public class QueryExecutionServiceTests
         var contextValues = new Dictionary<string, string> { ["DeptName"] = "眼科" };
 
         var service = CreateService();
-        var result = service.BuildWhereClause(config, userFilters, contextValues);
+        var pv = new Dictionary<string, string>();
+        var result = service.BuildWhereClause(config, userFilters, contextValues, pv);
 
         Assert.Contains("\"T\".\"COL1\" = :p_f_1", result);
-        Assert.Equal("眼科", userFilters["1"]); // injected into userFilters for MergeParams
+        Assert.Equal("眼科", pv["1"]);
     }
 
     [Fact]
@@ -315,10 +340,12 @@ public class QueryExecutionServiceTests
         var contextValues = new Dictionary<string, string>(); // empty — no DeptName
 
         var service = CreateService();
-        var result = service.BuildWhereClause(config, userFilters, contextValues);
+        var pv = new Dictionary<string, string>();
+        var result = service.BuildWhereClause(config, userFilters, contextValues, pv);
 
         Assert.Empty(result);
         Assert.Empty(userFilters);
+        Assert.Empty(pv);
     }
 
     [Fact]
@@ -331,9 +358,10 @@ public class QueryExecutionServiceTests
         var contextValues = new Dictionary<string, string> { ["DeptName"] = "眼科" };
 
         var service = CreateService();
-        var result = service.BuildWhereClause(config, userFilters, contextValues);
+        var pv = new Dictionary<string, string>();
+        var result = service.BuildWhereClause(config, userFilters, contextValues, pv);
 
-        Assert.Equal("眼科", userFilters["1"]); // context wins, user input overwritten
+        Assert.Equal("眼科", pv["1"]); // context wins, user input overwritten in paramValues
     }
 
     [Fact]
@@ -356,7 +384,8 @@ public class QueryExecutionServiceTests
         var contextValues = new Dictionary<string, string>();
 
         var service = CreateService();
-        var result = service.BuildWhereClause(config, userFilters, contextValues);
+        var pv = new Dictionary<string, string>();
+        var result = service.BuildWhereClause(config, userFilters, contextValues, pv);
 
         Assert.Contains(" AND ", result);
         Assert.Contains("\"T\".\"COL1\" = :p_f_1", result);
@@ -373,7 +402,8 @@ public class QueryExecutionServiceTests
         var contextValues = new Dictionary<string, string>();
 
         var service = CreateService();
-        var (sql, _) = service.BuildCountSql(config, userFilters, contextValues);
+        var paramValues = new Dictionary<string, string>();
+        var (sql, _) = service.BuildCountSql(config, userFilters, contextValues, paramValues, false);
 
         Assert.StartsWith("SELECT COUNT(*)", sql);
     }
@@ -409,10 +439,10 @@ public class QueryExecutionServiceTests
         var contextValues = new Dictionary<string, string> { ["DeptName"] = "内科" };
 
         var service = CreateService();
-        var (sql, _) = service.BuildCountSql(config, new Dictionary<string, string>(), contextValues);
+        var paramValues = new Dictionary<string, string>();
+        var (sql, _) = service.BuildCountSql(config, new Dictionary<string, string>(), contextValues, paramValues, true);
 
-        Assert.StartsWith("SELECT COUNT(*) FROM (SELECT * FROM PATIENTS) \"_cnt\"", sql);
-        Assert.Contains("WHERE", sql);
+        Assert.StartsWith("SELECT COUNT(*) FROM (SELECT * FROM PATIENTS WHERE", sql);
     }
 
     // ===== BuildDataSql =====
@@ -424,7 +454,8 @@ public class QueryExecutionServiceTests
         var service = CreateService();
         var contextValues = new Dictionary<string, string>();
 
-        var (sql, _) = service.BuildDataSql(config, 2, 20, new Dictionary<string, string>(), contextValues);
+        var paramValues = new Dictionary<string, string>();
+        var (sql, _) = service.BuildDataSql(config, 2, 20, new Dictionary<string, string>(), contextValues, paramValues, false, false);
 
         Assert.Contains("ROWNUM <= :p_endRow", sql);
         Assert.Contains("rn >= :p_startRow", sql);
@@ -454,9 +485,9 @@ public class QueryExecutionServiceTests
     // ===== HasUserFilterInput =====
 
     [Fact]
-    public void HasUserFilterInput_UserHasFilter_ReturnsTrue()
+    public void HasUserFilterInput_UserValueDiffersFromDefault_ReturnsTrue()
     {
-        var config = CreateSimpleConfig(filterId: 1);
+        var config = CreateSimpleConfig(filterId: 1, defaultValue: "abc");
         var userFilters = new Dictionary<string, string> { ["1"] = "x" };
 
         var result = QueryExecutionService.HasUserFilterInput(config, userFilters);
@@ -464,10 +495,30 @@ public class QueryExecutionServiceTests
     }
 
     [Fact]
+    public void HasUserFilterInput_UserValueEqualsDefault_ReturnsFalse()
+    {
+        var config = CreateSimpleConfig(filterId: 1, defaultValue: "abc");
+        var userFilters = new Dictionary<string, string> { ["1"] = "abc" };
+
+        var result = QueryExecutionService.HasUserFilterInput(config, userFilters);
+        Assert.False(result);
+    }
+
+    [Fact]
     public void HasUserFilterInput_EmptyUserFilters_ReturnsFalse()
     {
         var config = CreateSimpleConfig(filterId: 1);
         var userFilters = new Dictionary<string, string>();
+
+        var result = QueryExecutionService.HasUserFilterInput(config, userFilters);
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void HasUserFilterInput_ContextFilter_Ignored()
+    {
+        var config = CreateSimpleConfig(filterId: 1, isContextFilter: true, contextKey: "DeptName");
+        var userFilters = new Dictionary<string, string> { ["1"] = "x" };
 
         var result = QueryExecutionService.HasUserFilterInput(config, userFilters);
         Assert.False(result);
@@ -531,6 +582,101 @@ public class QueryExecutionServiceTests
         Assert.NotNull(result);
     }
 
+    // ===== IsStringType =====
+
+    [Theory]
+    [InlineData("VARCHAR2", true)]
+    [InlineData("NVARCHAR2", true)]
+    [InlineData("CHAR", true)]
+    [InlineData("NCHAR", true)]
+    [InlineData("CLOB", true)]
+    [InlineData("NCLOB", true)]
+    [InlineData("VARCHAR", true)]
+    [InlineData("NVARCHAR", true)]
+    [InlineData("LONG", true)]
+    [InlineData("NUMBER", false)]
+    [InlineData("DATE", false)]
+    [InlineData("INTEGER", false)]
+    [InlineData("FLOAT", false)]
+    [InlineData(null, false)]
+    public void IsStringType_Various(string? dataType, bool expected)
+    {
+        Assert.Equal(expected, QueryExecutionService.IsStringType(dataType));
+    }
+
+    // ===== DecodeHexString =====
+
+    [Fact]
+    public void DecodeHexString_Gbk_ReturnsChinese()
+    {
+        // "内科" in GBK = C4 DA BF C6
+        var result = QueryExecutionService.DecodeHexString("C4DABFC6", "gbk");
+        Assert.Equal("内科", result);
+    }
+
+    [Fact]
+    public void DecodeHexString_NullOrEmpty_ReturnsSame()
+    {
+        Assert.Equal("", QueryExecutionService.DecodeHexString("", "gbk"));
+    }
+
+    [Fact]
+    public void DecodeHexString_InvalidHex_ReturnsSame()
+    {
+        Assert.Equal("ZZZ", QueryExecutionService.DecodeHexString("ZZZ", "gbk"));
+    }
+
+    // ===== BuildSelectClause with HexEncoding =====
+
+    [Fact]
+    public void BuildSelectClause_WithHexEncoding_WrapsStringColumn()
+    {
+        var config = new QueryConfig
+        {
+            Fields = new List<QueryField>
+            {
+                new()
+                {
+                    SortOrder = 0,
+                    MetaColumn = new MetaColumn
+                    {
+                        ColumnName = "DIAGNOSIS",
+                        DataType = "VARCHAR2",
+                        MetaTable = new MetaTable { Alias = "T" }
+                    }
+                }
+            }
+        };
+
+        var result = QueryExecutionService.BuildSelectClause(config, useHexEncoding: true);
+        Assert.Contains("RAWTOHEX(UTL_RAW.CAST_TO_RAW", result);
+        Assert.Contains("AS \"DIAGNOSIS\"", result);
+    }
+
+    [Fact]
+    public void BuildSelectClause_WithHexEncoding_DoesNotWrapNumberColumn()
+    {
+        var config = new QueryConfig
+        {
+            Fields = new List<QueryField>
+            {
+                new()
+                {
+                    SortOrder = 0,
+                    MetaColumn = new MetaColumn
+                    {
+                        ColumnName = "PATIENT_ID",
+                        DataType = "NUMBER",
+                        MetaTable = new MetaTable { Alias = "T" }
+                    }
+                }
+            }
+        };
+
+        var result = QueryExecutionService.BuildSelectClause(config, useHexEncoding: true);
+        Assert.DoesNotContain("RAWTOHEX", result);
+    }
+
     // ===== Helpers =====
 
     private static QueryConfig CreateSimpleConfig(int filterId, string op = "EQ",
@@ -581,10 +727,14 @@ public class QueryExecutionServiceTests
         IHttpContextAccessor? httpContextAccessor = null)
     {
         var mockLogger = new Mock<ILogger<QueryExecutionService>>();
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["QueryTimeoutSeconds"] = "120" })
+            .Build();
         return new QueryExecutionService(
             null!, null!, null!,
             mockLogger.Object,
-            httpContextAccessor ?? CreateHttpContextAccessor());
+            httpContextAccessor ?? CreateHttpContextAccessor(),
+            config);
     }
 
     private static IHttpContextAccessor CreateHttpContextAccessor(

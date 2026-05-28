@@ -41,7 +41,7 @@ public class DataSourceService
             Name = request.Name,
             DbType = request.DbType,
             ConnectionString = Encrypt(request.ConnectionString),
-            Schema = request.Schema,
+            Schema = request.Schema?.ToUpperInvariant(),
             CharSetOverride = request.CharSetOverride
         };
         _db.DataSources.Add(entity);
@@ -57,7 +57,7 @@ public class DataSourceService
         entity.Name = request.Name;
         entity.DbType = request.DbType;
         entity.ConnectionString = Encrypt(request.ConnectionString);
-        entity.Schema = request.Schema;
+        entity.Schema = request.Schema?.ToUpperInvariant();
         entity.CharSetOverride = request.CharSetOverride;
         entity.IsEnabled = request.IsEnabled;
         entity.UpdatedAt = DateTime.UtcNow;
@@ -70,6 +70,42 @@ public class DataSourceService
     {
         var entity = await _db.DataSources.FindAsync(id);
         if (entity == null) return false;
+
+        // Cascade cleanup: delete dependent records that have Restrict FK
+        var tableIds = await _db.MetaTables
+            .Where(t => t.DataSourceId == id)
+            .Select(t => t.Id)
+            .ToListAsync();
+
+        if (tableIds.Count > 0)
+        {
+            var columnIds = await _db.MetaColumns
+                .Where(c => tableIds.Contains(c.MetaTableId))
+                .Select(c => c.Id)
+                .ToListAsync();
+
+            // Remove QueryConfigs that reference any MetaTable of this DS (via MainTable)
+            var configs = await _db.QueryConfigs
+                .Where(q => tableIds.Contains(q.MainTableId))
+                .ToListAsync();
+            _db.QueryConfigs.RemoveRange(configs);
+
+            // Remove Menus that reference those configs
+            var menus = await _db.Menus
+                .Where(m => m.QueryConfigId != null && configs.Select(c => c.Id).Contains(m.QueryConfigId.Value))
+                .ToListAsync();
+            foreach (var menu in menus) menu.QueryConfigId = null;
+
+            await _db.SaveChangesAsync();
+
+            // Now MetaTables can be deleted (columns cascade)
+            var tables = await _db.MetaTables
+                .Where(t => t.DataSourceId == id)
+                .ToListAsync();
+            _db.MetaTables.RemoveRange(tables);
+            await _db.SaveChangesAsync();
+        }
+
         _db.DataSources.Remove(entity);
         await _db.SaveChangesAsync();
         return true;

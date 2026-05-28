@@ -67,6 +67,7 @@ export interface QueryJoinInfo {
   rightMetaColumnId: number;
   rightColumnName: string | null;
   sortOrder: number;
+  leftDateTrunc: boolean;
 }
 
 export interface QueryConfigDetail {
@@ -103,7 +104,7 @@ export interface QueryConfigSave {
   rawSql?: string | null;
   fields: { metaColumnId: number; alias?: string; sortOrder: number; aggregateFunc?: string }[];
   filters: { metaColumnId: number; operator: string; defaultValue?: string; isRequired: boolean; controlType: string; label?: string; sortOrder: number; isContextFilter?: boolean; contextKey?: string | null }[];
-  joins: { joinTableId: number; joinType: string; leftMetaColumnId: number; rightMetaColumnId: number; sortOrder: number }[];
+  joins: { joinTableId: number; joinType: string; leftMetaColumnId: number; rightMetaColumnId: number; sortOrder: number; leftDateTrunc: boolean }[];
 }
 
 // ===== SQL Import =====
@@ -150,6 +151,7 @@ export interface SqlParseResponse {
   groupByColumn: string | null;
   unmatchedColumns: string[];
   rawSql: string | null;
+  unsupportedPattern: string | null;
 }
 
 export const queryApi = {

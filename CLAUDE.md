@@ -32,6 +32,17 @@ dotnet build --no-restore
 dotnet run --urls http://0.0.0.0:5000 &
 ```
 
+**构建并发布前的必修操作**：`dotnet build` 和 `dotnet publish` 都会因 exe 被运行中的进程锁定而失败。发布前必须：
+```bash
+# 1. 先停后端进程
+powershell -Command "Get-Process -Name 'HospitalStats.Api' -ErrorAction SilentlyContinue | Stop-Process -Force"
+sleep 2
+# 2. 构建前端（如需要）
+cd F:\HospitalStats\hospital-stats-frontend && npm run build
+# 3. 发布后端
+dotnet publish "F:/HospitalStats/HospitalStats.Backend/HospitalStats.Api" -c Release -o "F:/HospitalStats/deploy/publish" --no-restore
+```
+
 **SQLite 快速查询**:
 ```bash
 cd F:\HospitalStats\HospitalStats.Backend\HospitalStats.Api
@@ -97,13 +108,29 @@ dotnet test
 3. 前端展示预览面板（绿色 = 已匹配，黄色 = 未匹配）
 4. 用户点击"应用并继续" → 表单填充解析出的字段/筛选/JOIN，同时保存 `rawSql`
 5. 保存时 → `QueryConfig.RawSql` 持久化到 SQLite
-6. 执行时 → `QueryExecutionService` 直接用 `RawSql` 套 ROWNUM 分页执行，**不再拆解重建**。保证复杂表达式（`to_char()`、`DECODE()`、`CASE WHEN`、函数式 JOIN）结果与原始 SQL 完全一致
+6. 执行时 → **Count SQL 用 rawSql 包裹子查询**（计数不需要中文），**Data SQL 走配置路径**（Fields/Joins/Filters 拼装），这样 US7ASCII 数据库能自动对字符串列加 `RAWTOHEX(UTL_RAW.CAST_TO_RAW())` 包裹。仅当配置没有任何 Fields 时才退回到 rawSql 路径做 Data SQL
 
 ### Oracle 10g 注意事项
 
 - 无 `OFFSET/FETCH`，必须用 `ROWNUM` 三层子查询分页
 - 老医院系统常见 `US7ASCII` 字符集——数据源的 `CharSetOverride` 和 `ExecuteAsync` 中的编码转换逻辑处理
 - Oracle 连接串在 SQLite 中以 AES-CBC 加密存储，运行时解密
+
+### US7ASCII 中文编码处理（关键）
+
+**问题根因**：US7ASCII 字符集只支持 0x00-0x7F 字节。Oracle 传输层会将超范围字节替换为 `?`，中文数据经 ODP.NET 到达应用层时已损坏。
+
+**解决策略——双路径分工**：
+
+| 路径 | Count SQL | Data SQL |
+|------|-----------|----------|
+| 有 rawSql | rawSql + 筛选注入 | rawSql + hex 包装 + 筛选注入 |
+| 无 rawSql | 配置路径 | 配置路径（自动 RAWTOHEX） |
+
+**核心机制**：
+1. **Count SQL**：rawSql 包裹为 `SELECT COUNT(*) FROM (<rawSql>) "_cnt"`，筛选条件通过 `InjectWhereIntoRawSql` 注入到 GROUP BY/ORDER BY 之前
+2. **Data SQL**：rawSql 外层包 hex 编码 SELECT（`HexEncodeRawSqlColumns`），对 string 类型输出列包裹 `RAWTOHEX(UTL_RAW.CAST_TO_RAW("col"))`，再套 ROWNUM 分页。筛选注入同理
+3. **ParseSelectAliases**：从 rawSql SELECT 子句中提取输出列别名，用于 hex 包装时匹配 string 列
 
 ### 数据范围权限
 
@@ -114,15 +141,46 @@ dotnet test
 
 ## 生产部署
 
+### 完整发布流程
+
+```bash
+# 1. 停后端
+powershell -Command "Get-Process -Name 'HospitalStats.Api' -ErrorAction SilentlyContinue | Stop-Process -Force"
+sleep 2
+
+# 2. 构建前端（输出到 wwwroot/）
+cd F:\HospitalStats\hospital-stats-frontend
+npm run build
+
+# 3. 发布后端（含 wwwroot/）
+dotnet publish "F:/HospitalStats/HospitalStats.Backend/HospitalStats.Api" -c Release -o "F:/HospitalStats/deploy/publish" --no-restore
+
+# 4. 同步 config.db（如需）
+cp F:/HospitalStats/deploy/publish/config.db F:/HospitalStats/HospitalStats.Backend/HospitalStats.Api/config.db
+
+# 5. 启动（Production 模式 = API + 静态文件）
+export ASPNETCORE_ENVIRONMENT=Production
+cd F:/HospitalStats/deploy/publish && dotnet HospitalStats.Api.dll --urls http://0.0.0.0:5000
+```
+
+单端口 5000 同时提供前端 SPA 和 `/api` 后端。
+
 ### 构建
 
-前端 `npm run build` 直接输出到 `wwwroot/`（`vite.config.ts` 已配置 `outDir`）。后端在非 Development 模式下自动服务静态文件 + SPA fallback：
+前端 `npm run build` 直接输出到 `wwwroot/`（`vite.config.ts` 已配置 `outDir`，`emptyOutDir: true`）。**注意：构建输出是 `wwwroot/` 而非 `dist/`，部署时务必从 `wwwroot/` 复制。**
+
+后端 `dotnet publish` 会自动包含 `wwwroot/` 作为内容文件，因此先构建前端再 publish 后端即可一次性产出完整部署包：
 
 ```bash
 cd F:\HospitalStats\hospital-stats-frontend
 npm run build
 cd F:\HospitalStats\HospitalStats.Backend\HospitalStats.Api
-dotnet publish -c Release -o ./publish
+dotnet publish -c Release -o F:\HospitalStats\deploy\publish
+```
+
+如果仅更新前端，手动复制到部署目录：
+```bash
+cp -r F:/HospitalStats/HospitalStats.Backend/HospitalStats.Api/wwwroot/* F:/HospitalStats/deploy/publish/wwwroot/
 ```
 
 ### 必须配置的环境变量
@@ -169,3 +227,32 @@ dotnet HospitalStats.Api.dll --urls http://0.0.0.0:5000
   }
 }
 ```
+
+## 项目日志
+
+每次开发会话结束后，在 `F:\HospitalStats\logs\project-YYYY-MM-DD.md` 追加记录当日主要操作。格式：
+
+```markdown
+## 2026-05-27
+
+- **做了什么** — 简述改动内容和原因
+- **涉及文件** — 列出修改的关键文件
+- **部署状态** — 是否已部署到服务器
+```
+
+同一天多次会话追加到同一文件。日志文件命名按本地日期（北京时间）。
+
+## 前端设计系统
+
+使用 frontend-design skill（`F:\HospitalStats\.claude\skills\frontend-design`）进行 UI 设计时，遵循以下项目设计规范：
+
+- **主色调**: Teal `#0d9488`（替代 Element Plus 默认蓝色），医疗数据平台的临床感、专业感
+- **侧边栏**: 深 Slate `#0f172a`，文字 `#94a3b8`，激活态 Teal `#2dd4bf`
+- **页面背景**: 暖灰 `#f1f5f9`
+- **卡片/表面**: 纯白，阴影使用 slate 色调
+- **字体栈**: `PingFang SC, Microsoft YaHei, Hiragino Sans GB, WenQuanYi Micro Hei, sans-serif`
+- **圆角**: 基础 6px，卡片 8px，头像/图标 10px
+- **主题变量文件**: `src/styles/theme.css` — 覆盖 Element Plus CSS 变量
+- **设计方向**: "Clinical Precision" — 克制、专业、信赖感，避免花哨，强调信息层次
+
+新建或美化页面时必须遵循此设计系统，确保风格统一。

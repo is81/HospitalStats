@@ -13,10 +13,14 @@ const configId = isEdit ? (route.params.id as string) : null;
 
 // data sources
 const dataSources = ref<DataSourceItem[]>([]);
-const selectedDsId = ref<number>();
+const selectedDsIds = ref<number[]>([]);
 
 // tables for main table selection
 const tables = ref<MetaTable[]>([]);
+// all tables keyed by dataSourceId (for multi-source JOIN)
+const tablesByDs = ref<Record<number, MetaTable[]>>({});
+// per-join-row data source selection (keyed by join row index)
+const joinDsId = ref<Record<number, number>>({});
 const tableColumns = ref<Record<number, MetaColumn[]>>({});
 
 // form
@@ -51,15 +55,15 @@ const operators = [
   { value: 'EQ', label: '等于' },
   { value: 'NE', label: '不等于' },
   { value: 'GT', label: '大于' },
-  { value: 'GTE', label: '大于等于' },
+  { value: 'GTE', label: '≥' },
   { value: 'LT', label: '小于' },
-  { value: 'LTE', label: '小于等于' },
-  { value: 'LIKE', label: '模糊匹配' },
-  { value: 'NOT LIKE', label: '排除模糊' },
-  { value: 'IN', label: '包含' },
-  { value: 'NOT IN', label: '不包含' },
+  { value: 'LTE', label: '≤' },
+  { value: 'LIKE', label: '包含' },
+  { value: 'NOT LIKE', label: '排除' },
+  { value: 'IN', label: '属于' },
+  { value: 'NOT IN', label: '不属' },
   { value: 'BETWEEN', label: '范围' },
-  { value: 'NOT BETWEEN', label: '不在范围' },
+  { value: 'NOT BETWEEN', label: '非范围' },
 ];
 
 const controlTypes = [
@@ -107,7 +111,9 @@ async function applySqlResult() {
       try {
         for (const ds of dataSources.value) {
           const tRes = await metaApi.getTables(ds.id);
-          for (const t of tRes.data) {
+          const enabled = tRes.data.filter(t => t.isEnabled);
+          tablesByDs.value[ds.id] = enabled;
+          for (const t of enabled) {
             if (!tables.value.find(ex => ex.id === t.id)) {
               tables.value.push(t);
             }
@@ -117,7 +123,7 @@ async function applySqlResult() {
     }
     const mainTable = tables.value.find(t => t.id === r.mainTableId);
     if (mainTable) {
-      selectedDsId.value = mainTable.dataSourceId;
+      selectedDsIds.value = [mainTable.dataSourceId];
     }
     await loadColumns(r.mainTableId);
   }
@@ -154,17 +160,27 @@ async function applySqlResult() {
       .filter(j => j.matched && j.joinTableId && j.leftMetaColumnId && j.rightMetaColumnId)
       .map((j, i) => ({
         joinTableId: j.joinTableId!,
-        joinType: j.joinType || 'LEFT',
+        joinType: j.joinType || 'INNER',
         leftMetaColumnId: j.leftMetaColumnId!,
         rightMetaColumnId: j.rightMetaColumnId!,
         sortOrder: i,
+        leftDateTrunc: false,
       }));
-    // load columns for joined tables
+    // load columns for joined tables + set joinDsId
+    const dsIds = new Set<number>(selectedDsIds.value);
+    for (let i = 0; i < form.joins.length; i++) {
+      const jt = tables.value.find(t => t.id === form.joins[i].joinTableId);
+      if (jt) {
+        joinDsId.value[i] = jt.dataSourceId;
+        dsIds.add(jt.dataSourceId);
+      }
+    }
     for (const j of r.joins) {
       if (j.joinTableId) {
         loadColumns(j.joinTableId);
       }
     }
+    selectedDsIds.value = [...dsIds];
   }
 
   // switch to manual mode and move to step 1
@@ -178,14 +194,45 @@ async function loadDataSources() {
   dataSources.value = res.data;
 }
 
-async function onDsChange(dsId: number | undefined) {
-  selectedDsId.value = dsId;
-  if (dsId) {
-    const res = await metaApi.getTables(dsId);
-    tables.value = res.data.filter(t => t.isEnabled);
-  } else {
-    tables.value = [];
+function getDsName(dsId: number): string {
+  return dataSources.value.find(ds => ds.id === dsId)?.name ?? `DS#${dsId}`;
+}
+
+async function onDsChange(dsIds: number[]) {
+  selectedDsIds.value = dsIds;
+  // Load tables for newly selected sources, remove deselected ones
+  const prevIds = new Set(Object.keys(tablesByDs.value).map(Number));
+  const curIds = new Set(dsIds);
+  for (const id of dsIds) {
+    if (!prevIds.has(id)) {
+      const res = await metaApi.getTables(id);
+      tablesByDs.value[id] = res.data.filter(t => t.isEnabled);
+    }
   }
+  for (const id of prevIds) {
+    if (!curIds.has(id)) {
+      delete tablesByDs.value[id];
+    }
+  }
+  // Aggregate tables from all selected data sources
+  tables.value = dsIds.flatMap(id => tablesByDs.value[id] || []);
+  // If the currently selected main table is no longer available, clear it
+  if (form.mainTableId && !tables.value.find(t => t.id === form.mainTableId)) {
+    form.mainTableId = 0;
+  }
+}
+
+async function onJoinDsChange(dsId: number, joinIndex: number) {
+  joinDsId.value[joinIndex] = dsId;
+  if (!tablesByDs.value[dsId]) {
+    const res = await metaApi.getTables(dsId);
+    tablesByDs.value[dsId] = res.data.filter(t => t.isEnabled);
+  }
+}
+
+function getJoinTables(joinIndex: number): MetaTable[] {
+  const dsId = joinDsId.value[joinIndex];
+  return dsId ? (tablesByDs.value[dsId] || []) : [];
 }
 
 async function onMainTableChange(tableId: number) {
@@ -217,7 +264,7 @@ async function loadExistingConfig() {
   form.isEnabled = c.isEnabled;
   form.fields = c.fields.map(f => ({ metaColumnId: f.metaColumnId, alias: f.alias ?? undefined, sortOrder: f.sortOrder, aggregateFunc: f.aggregateFunc ?? undefined }));
   form.filters = c.filters.map(f => ({ metaColumnId: f.metaColumnId, operator: f.operator, defaultValue: f.defaultValue ?? undefined, isRequired: f.isRequired, controlType: f.controlType, label: f.label ?? undefined, sortOrder: f.sortOrder, isContextFilter: f.isContextFilter, contextKey: f.contextKey }));
-  form.joins = c.joins.map(j => ({ joinTableId: j.joinTableId, joinType: j.joinType, leftMetaColumnId: j.leftMetaColumnId, rightMetaColumnId: j.rightMetaColumnId, sortOrder: j.sortOrder }));
+  form.joins = c.joins.map(j => ({ joinTableId: j.joinTableId, joinType: j.joinType, leftMetaColumnId: j.leftMetaColumnId, rightMetaColumnId: j.rightMetaColumnId, sortOrder: j.sortOrder, leftDateTrunc: j.leftDateTrunc }));
 
   // 恢复 rawSql（SQL导入的配置）
   form.rawSql = c.rawSql ?? null;
@@ -234,6 +281,30 @@ function addField() {
 
 function removeField(idx: number) {
   form.fields.splice(idx, 1);
+}
+
+function moveUp(arr: { sortOrder: number }[], idx: number) {
+  if (idx <= 0) return;
+  [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
+  const tmp = arr[idx - 1].sortOrder;
+  arr[idx - 1].sortOrder = arr[idx].sortOrder;
+  arr[idx].sortOrder = tmp;
+  // swap join dsIds too
+  const tmpDs = joinDsId.value[idx - 1];
+  joinDsId.value[idx - 1] = joinDsId.value[idx];
+  joinDsId.value[idx] = tmpDs;
+}
+
+function moveDown(arr: { sortOrder: number }[], idx: number) {
+  if (idx >= arr.length - 1) return;
+  [arr[idx], arr[idx + 1]] = [arr[idx + 1], arr[idx]];
+  const tmp = arr[idx].sortOrder;
+  arr[idx].sortOrder = arr[idx + 1].sortOrder;
+  arr[idx + 1].sortOrder = tmp;
+  // swap join dsIds too
+  const tmpDs = joinDsId.value[idx];
+  joinDsId.value[idx] = joinDsId.value[idx + 1];
+  joinDsId.value[idx + 1] = tmpDs;
 }
 
 function onFieldColumnChange(field: { alias: string; metaColumnId: number }, metaColumnId: number) {
@@ -262,6 +333,20 @@ function getColumnOptions(forTableIds?: number[]) {
   return options;
 }
 
+function getLeftTableId(joinIndex: number): number {
+  const colId = form.joins[joinIndex]?.leftMetaColumnId;
+  if (!colId) return form.mainTableId;
+  for (const [tableId, cols] of Object.entries(tableColumns.value)) {
+    if (cols.some(c => c.id === colId)) return Number(tableId);
+  }
+  // Also check in tables that have been loaded with columns
+  for (const j of form.joins.slice(0, joinIndex)) {
+    const jCols = tableColumns.value[j.joinTableId] || [];
+    if (jCols.some(c => c.id === colId)) return j.joinTableId;
+  }
+  return form.mainTableId;
+}
+
 // filter management
 function addFilter() {
   form.filters.push({ metaColumnId: 0, operator: 'EQ', controlType: 'input', isRequired: false, sortOrder: form.filters.length, isContextFilter: false, contextKey: null });
@@ -273,11 +358,20 @@ function removeFilter(idx: number) {
 
 // join management
 function addJoin() {
-  form.joins.push({ joinTableId: 0, joinType: 'LEFT', leftMetaColumnId: 0, rightMetaColumnId: 0, sortOrder: form.joins.length });
+  const idx = form.joins.length;
+  form.joins.push({ joinTableId: 0, joinType: 'LEFT', leftMetaColumnId: 0, rightMetaColumnId: 0, sortOrder: idx, leftDateTrunc: false });
+  joinDsId.value[idx] = selectedDsIds.value[0] ?? dataSources.value[0]?.id;
 }
 
 function removeJoin(idx: number) {
   form.joins.splice(idx, 1);
+  const newMap: Record<number, number> = {};
+  for (const [k, v] of Object.entries(joinDsId.value)) {
+    const ki = Number(k);
+    if (ki < idx) newMap[ki] = v;
+    else if (ki > idx) newMap[ki - 1] = v;
+  }
+  joinDsId.value = newMap;
 }
 
 async function handleSave() {
@@ -308,11 +402,12 @@ onMounted(async () => {
   if (isEdit) {
     // We need tables loaded first, load them lazily by reading config
     const res = await queryApi.getConfig(Number(configId));
-    // Find which data source the main table belongs to
     // For simplicity, load all tables from all data sources
     for (const ds of dataSources.value) {
       const tRes = await metaApi.getTables(ds.id);
-      for (const t of tRes.data) {
+      const enabled = tRes.data.filter(t => t.isEnabled);
+      tablesByDs.value[ds.id] = enabled;
+      for (const t of enabled) {
         tables.value.push(t);
       }
     }
@@ -321,11 +416,23 @@ onMounted(async () => {
       await loadColumns(j.joinTableId);
     }
     await loadExistingConfig();
-    // Set selected ds based on main table
+    // Collect all unique data source IDs used by main table + joins
+    const dsIds = new Set<number>();
     const mainTable = tables.value.find(t => t.id === res.data.mainTableId);
     if (mainTable) {
-      selectedDsId.value = mainTable.dataSourceId;
+      dsIds.add(mainTable.dataSourceId);
     }
+    // Initialize joinDsId for existing joins
+    for (let i = 0; i < form.joins.length; i++) {
+      const jt = tables.value.find(t => t.id === form.joins[i].joinTableId);
+      if (jt) {
+        joinDsId.value[i] = jt.dataSourceId;
+        dsIds.add(jt.dataSourceId);
+      }
+    }
+    selectedDsIds.value = [...dsIds];
+    // Keep tables in sync: only show tables from actually selected data sources
+    tables.value = tables.value.filter(t => dsIds.has(t.dataSourceId));
   }
 });
 </script>
@@ -341,9 +448,9 @@ onMounted(async () => {
     <el-steps :active="activeStep" finish-status="success" align-center
       style="background: white; padding: 20px; border-radius: 4px; margin-bottom: 16px">
       <el-step title="基本信息" />
+      <el-step title="关联表" />
       <el-step title="查询字段" />
       <el-step title="筛选条件" />
-      <el-step title="关联表" />
       <el-step title="展示设置" />
     </el-steps>
 
@@ -365,7 +472,8 @@ onMounted(async () => {
             <el-input v-model="form.name" placeholder="如：门诊收入汇总" />
           </el-form-item>
           <el-form-item label="数据源">
-            <el-select v-model="selectedDsId" placeholder="选择数据源" @change="onDsChange" style="width: 100%">
+            <el-select v-model="selectedDsIds" placeholder="选择数据源（可多选）" @change="onDsChange"
+              style="width: 100%" multiple>
               <el-option v-for="ds in dataSources" :key="ds.id" :label="ds.name" :value="ds.id" />
             </el-select>
           </el-form-item>
@@ -373,7 +481,8 @@ onMounted(async () => {
             <el-select v-model="form.mainTableId" placeholder="选择主表" @change="onMainTableChange"
               style="width: 100%" filterable>
               <el-option v-for="t in tables" :key="t.id"
-                :label="`${t.alias || t.tableName} (${t.tableName})`" :value="t.id" />
+                :label="`[${getDsName(t.dataSourceId)}] ${t.alias || t.tableName} (${t.tableName})`"
+                :value="t.id" />
             </el-select>
           </el-form-item>
         </el-form>
@@ -426,6 +535,19 @@ onMounted(async () => {
               </div>
             </div>
 
+            <div v-if="sqlResult.joins && sqlResult.joins.length > 0" style="margin-bottom: 8px">
+              <span style="color: #909399; font-size: 13px">关联 ({{ sqlResult.joins.length }})：</span>
+              <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px">
+                <el-tag v-for="(j, i) in sqlResult.joins" :key="i"
+                  :type="j.matched ? 'success' : 'warning'" size="small">
+                  {{ j.joinTableName }} [{{ j.joinType }}]
+                  <span v-if="j.leftColumnName && j.rightColumnName" style="color: #909399">
+                    ({{ j.leftColumnName }} = {{ j.rightColumnName }})
+                  </span>
+                </el-tag>
+              </div>
+            </div>
+
             <div v-if="sqlResult.sortColumn" style="margin-bottom: 8px">
               <span style="color: #909399; font-size: 13px">排序：{{ sqlResult.sortColumn }} {{ sqlResult.sortDirection }}</span>
             </div>
@@ -446,8 +568,8 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- Step 1: Fields -->
-      <div v-show="activeStep === 1">
+      <!-- Step 2: Fields -->
+      <div v-show="activeStep === 2">
         <div style="margin-bottom: 12px">
           <el-button size="small" @click="addField">+ 添加字段</el-button>
         </div>
@@ -479,8 +601,10 @@ onMounted(async () => {
               </el-select>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="70">
+          <el-table-column label="操作" width="120">
             <template #default="{ $index }">
+              <el-button size="small" text :disabled="$index === 0" @click="moveUp(form.fields, $index)">↑</el-button>
+              <el-button size="small" text :disabled="$index === form.fields.length - 1" @click="moveDown(form.fields, $index)">↓</el-button>
               <el-button size="small" type="danger" text @click="removeField($index)">删除</el-button>
             </template>
           </el-table-column>
@@ -488,8 +612,8 @@ onMounted(async () => {
         <el-empty v-if="!form.mainTableId" description="请先在基本信息中选择主表" />
       </div>
 
-      <!-- Step 2: Filters -->
-      <div v-show="activeStep === 2">
+      <!-- Step 3: Filters -->
+      <div v-show="activeStep === 3">
         <div style="margin-bottom: 12px">
           <el-button size="small" @click="addFilter">+ 添加筛选</el-button>
         </div>
@@ -509,9 +633,13 @@ onMounted(async () => {
           </el-table-column>
           <el-table-column label="操作符" width="110">
             <template #default="{ row }">
-              <el-select v-model="row.operator" size="small">
-                <el-option v-for="op in operators" :key="op.value" :label="op.label" :value="op.value" />
-              </el-select>
+              <el-tooltip :content="row.operator" placement="top">
+                <el-select v-model="row.operator" size="small" popper-class="op-code-dropdown">
+                  <el-option v-for="op in operators" :key="op.value" :label="op.label" :value="op.value">
+                    <span>{{ op.label }} <span class="op-code">{{ op.value }}</span></span>
+                  </el-option>
+                </el-select>
+              </el-tooltip>
             </template>
           </el-table-column>
           <el-table-column label="控件类型" width="110">
@@ -544,25 +672,35 @@ onMounted(async () => {
               <span v-else style="color: #c0c4cc; font-size: 12px">—</span>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="70">
+          <el-table-column label="操作" width="120">
             <template #default="{ $index }">
+              <el-button size="small" text :disabled="$index === 0" @click="moveUp(form.filters, $index)">↑</el-button>
+              <el-button size="small" text :disabled="$index === form.filters.length - 1" @click="moveDown(form.filters, $index)">↓</el-button>
               <el-button size="small" type="danger" text @click="removeFilter($index)">删除</el-button>
             </template>
           </el-table-column>
         </el-table>
       </div>
 
-      <!-- Step 3: Joins -->
-      <div v-show="activeStep === 3">
+      <!-- Step 1: Joins -->
+      <div v-show="activeStep === 1">
         <div style="margin-bottom: 12px">
           <el-button size="small" @click="addJoin">+ 添加关联</el-button>
         </div>
         <el-table :data="form.joins" border stripe v-if="form.mainTableId">
+          <el-table-column label="数据源" width="110">
+            <template #default="{ $index }">
+              <el-select v-model="joinDsId[$index]" size="small"
+                @change="(id: number) => onJoinDsChange(id, $index)" style="width: 100%">
+                <el-option v-for="ds in dataSources" :key="ds.id" :label="ds.name" :value="ds.id" />
+              </el-select>
+            </template>
+          </el-table-column>
           <el-table-column label="关联表" min-width="180">
-            <template #default="{ row }">
+            <template #default="{ row, $index }">
               <el-select v-model="row.joinTableId" placeholder="选择关联表" @change="(id: number) => loadColumns(id)"
                 filterable style="width: 100%">
-                <el-option v-for="t in tables" :key="t.id"
+                <el-option v-for="t in getJoinTables($index)" :key="t.id"
                   :label="`${t.alias || t.tableName}`" :value="t.id" />
               </el-select>
             </template>
@@ -575,10 +713,10 @@ onMounted(async () => {
               </el-select>
             </template>
           </el-table-column>
-          <el-table-column label="左字段（主表）" min-width="160">
-            <template #default="{ row }">
-              <el-select v-model="row.leftMetaColumnId" placeholder="主表字段" filterable style="width: 100%">
-                <el-option v-for="opt in getColumnOptions([form.mainTableId])" :key="opt.value"
+          <el-table-column label="左字段" min-width="160">
+            <template #default="{ row, $index }">
+              <el-select v-model="row.leftMetaColumnId" placeholder="选择字段" filterable style="width: 100%">
+                <el-option v-for="opt in getColumnOptions([getLeftTableId($index)])" :key="opt.value"
                   :label="opt.label" :value="opt.value" />
               </el-select>
             </template>
@@ -592,8 +730,16 @@ onMounted(async () => {
               </el-select>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="70">
+          <el-table-column label="TRUNC日期" width="100">
+            <template #default="{ row }">
+              <el-checkbox v-model="row.leftDateTrunc"
+                title="对左字段应用 TRUNC()，去掉时分秒" />
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="120">
             <template #default="{ $index }">
+              <el-button size="small" text :disabled="$index === 0" @click="moveUp(form.joins, $index)">↑</el-button>
+              <el-button size="small" text :disabled="$index === form.joins.length - 1" @click="moveDown(form.joins, $index)">↓</el-button>
               <el-button size="small" type="danger" text @click="removeJoin($index)">删除</el-button>
             </template>
           </el-table-column>

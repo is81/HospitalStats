@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using HospitalStats.Api.Data;
 using HospitalStats.Api.DTOs;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -53,6 +54,30 @@ public class AuthController : ControllerBase
             MenuIds = menuIds,
             DeptName = user.DeptName
         };
+    }
+
+    [HttpPost("change-password")]
+    [Authorize]
+    public async Task<ActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        var user = await _db.Users.FindAsync(userId);
+        if (user == null)
+            return NotFound(new { message = "用户不存在" });
+
+        if (!BCrypt.Net.BCrypt.Verify(request.OldPassword, user.PasswordHash))
+            return BadRequest(new { message = "原密码错误" });
+
+        if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 6)
+            return BadRequest(new { message = "新密码至少6位" });
+
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "密码修改成功" });
     }
 
     private string GenerateJwt(Models.User user, List<string> roles)

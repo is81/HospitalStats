@@ -126,6 +126,7 @@ public class QueryJoinDto
     public int RightMetaColumnId { get; set; }
     public string? RightColumnName { get; set; }
     public int SortOrder { get; set; }
+    public bool LeftDateTrunc { get; set; }
 }
 
 public class QueryJoinSaveRequest
@@ -135,6 +136,7 @@ public class QueryJoinSaveRequest
     public int LeftMetaColumnId { get; set; }
     public int RightMetaColumnId { get; set; }
     public int SortOrder { get; set; }
+    public bool LeftDateTrunc { get; set; }
 }
 
 // ===== SQL Import =====
@@ -156,6 +158,7 @@ public class SqlParseResponse
     public string? GroupByColumn { get; set; }
     public List<string> UnmatchedColumns { get; set; } = new();
     public string? RawSql { get; set; }
+    public string? UnsupportedPattern { get; set; }
 }
 
 public class SqlJoinMatch
@@ -186,4 +189,5 @@ public class SqlFilterMatch
     public string? DefaultValue { get; set; }
     public string? Label { get; set; }
     public bool Matched { get; set; }
+    public string? OriginalText { get; set; }
 }

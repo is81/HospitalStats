@@ -11,6 +11,7 @@ const configId = Number(route.params.configId);
 
 const config = ref<QueryConfigDetail | null>(null);
 const filterValues = ref<Record<string, string>>({});
+const filterOperators = ref<Record<string, string>>({});
 const filterOptions = ref<Record<string, string[]>>({});
 const result = ref<QueryResult | null>(null);
 const loading = ref(false);
@@ -23,12 +24,27 @@ const visibleFilters = computed(() =>
   config.value?.filters.filter(f => !f.isContextFilter) ?? []
 );
 
+// Build filter dict sent to API: "operator::value" if operator differs from config default,
+// otherwise plain "value" for backward compatibility.
+const sendFilterValues = computed(() => {
+  const result: Record<string, string> = {};
+  for (const f of visibleFilters.value) {
+    const fid = f.id.toString();
+    const val = filterValues.value[fid] ?? '';
+    if (!val && !f.defaultValue) continue;
+    const op = filterOperators.value[fid] ?? f.operator;
+    result[fid] = op !== f.operator ? `${op}::${val}` : val;
+  }
+  return result;
+});
+
 async function loadConfig() {
   const res = await queryApi.getConfig(configId);
   config.value = res.data;
-  // init filter defaults
+  // init filter defaults and operators
   for (const f of res.data.filters) {
     if (f.isContextFilter) continue;
+    filterOperators.value[f.id.toString()] = f.operator;
     if (f.defaultValue) {
       filterValues.value[f.id.toString()] = f.defaultValue;
     }
@@ -47,12 +63,18 @@ async function loadConfig() {
 
 async function doQuery(p?: number) {
   if (!config.value) return;
+  for (const f of visibleFilters.value) {
+    if (f.isRequired && !filterValues.value[f.id.toString()]) {
+      ElMessage.warning(`请填写必填筛选条件：${getFilterLabel(f)}`);
+      return;
+    }
+  }
   page.value = p || 1;
   loading.value = true;
   try {
     const res = await executeApi.execute(
       configId,
-      filterValues.value,
+      sendFilterValues.value,
       page.value,
       config.value.pageSize ?? 50
     );
@@ -111,34 +133,30 @@ function renderChart() {
 async function doExport() {
   if (!config.value) return;
   try {
-    await executeApi.exportExcel(configId, filterValues.value);
+    await executeApi.exportExcel(configId, sendFilterValues.value);
     ElMessage.success('导出成功');
   } catch {
     ElMessage.error('导出失败');
   }
 }
 
-const operatorLabels: Record<string, string> = {
-  EQ: '=',
-  NE: '≠',
-  GT: '>',
-  GTE: '≥',
-  LT: '<',
-  LTE: '≤',
-  LIKE: '包含',
-  'NOT LIKE': '不包含',
-  IN: '属于',
-  'NOT IN': '不属于',
-  BETWEEN: '介于',
-  'NOT BETWEEN': '不介于',
-};
+const operators = [
+  { value: 'EQ', label: '等于' },
+  { value: 'NE', label: '不等于' },
+  { value: 'GT', label: '大于' },
+  { value: 'GTE', label: '≥' },
+  { value: 'LT', label: '小于' },
+  { value: 'LTE', label: '≤' },
+  { value: 'LIKE', label: '包含' },
+  { value: 'NOT LIKE', label: '排除' },
+  { value: 'IN', label: '属于' },
+  { value: 'NOT IN', label: '不属' },
+  { value: 'BETWEEN', label: '范围' },
+  { value: 'NOT BETWEEN', label: '非范围' },
+];
 
 function getFilterLabel(f: { label?: string | null; columnAlias?: string | null; columnName?: string | null }) {
   return f.label || f.columnAlias || f.columnName || '';
-}
-
-function getOperatorLabel(op: string) {
-  return operatorLabels[op] || op;
 }
 
 onMounted(loadConfig);
@@ -161,22 +179,29 @@ onMounted(loadConfig);
       <el-form inline>
         <el-form-item v-for="f in visibleFilters" :key="f.id">
           <template #label>
-            <span>{{ getFilterLabel(f) }}
-              <el-tag size="small" type="info" style="margin-left: 4px">{{ getOperatorLabel(f.operator) }}</el-tag>
-            </span>
+            <span>{{ getFilterLabel(f) }}</span>
           </template>
+          <el-tooltip :content="filterOperators[f.id.toString()]" placement="top">
+            <el-select v-model="filterOperators[f.id.toString()]"
+              size="small" style="width: 60px; margin-right: 6px" popper-class="op-code-dropdown">
+              <el-option v-for="op in operators" :key="op.value"
+                :label="op.label" :value="op.value">
+                <span>{{ op.label }} <span class="op-code">{{ op.value }}</span></span>
+              </el-option>
+            </el-select>
+          </el-tooltip>
           <el-date-picker v-if="f.controlType === 'date'"
             v-model="filterValues[f.id.toString()]"
             type="date" value-format="YYYY-MM-DD" placeholder="选择日期" />
           <el-select v-else-if="f.controlType === 'select'"
             v-model="filterValues[f.id.toString()]"
-            placeholder="请选择" clearable style="width: 180px">
+            placeholder="请选择" clearable style="width: 120px">
             <el-option v-for="opt in filterOptions[f.id.toString()]"
               :key="opt" :label="opt" :value="opt" />
           </el-select>
           <el-input v-else
             v-model="filterValues[f.id.toString()]"
-            :placeholder="f.label || '请输入'" clearable style="width: 180px" />
+            :placeholder="f.label || '请输入'" clearable style="width: 120px" />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" :loading="loading" @click="doQuery(1)">查询</el-button>

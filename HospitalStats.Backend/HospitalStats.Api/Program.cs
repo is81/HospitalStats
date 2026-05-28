@@ -8,11 +8,8 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
 
-// Use WE8ISO8859P1 (8-bit Latin-1) as client charset.
-// US7ASCII DB → WE8ISO8859P1 client preserves all byte values 0-255.
-// Each raw byte becomes the corresponding Latin-1 character in .NET,
-// which our ConvertEncoding then recovers and re-decodes as GBK.
-Environment.SetEnvironmentVariable("NLS_LANG", "AMERICAN_AMERICA.WE8ISO8859P1");
+// Required for GBK/GB2312/GB18030 decoding on .NET 8+
+Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
 var logPath = Path.Combine(AppContext.BaseDirectory, "logs", "app-.log");
 Log.Logger = new LoggerConfiguration()
@@ -23,11 +20,6 @@ Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
     .WriteTo.File(logPath, rollingInterval: RollingInterval.Day, retainedFileCountLimit: 30)
     .CreateLogger();
-
-Log.Information("NLS_LANG process={Proc}, machine={Mach}, user={User}",
-    Environment.GetEnvironmentVariable("NLS_LANG", EnvironmentVariableTarget.Process) ?? "(null)",
-    Environment.GetEnvironmentVariable("NLS_LANG", EnvironmentVariableTarget.Machine) ?? "(null)",
-    Environment.GetEnvironmentVariable("NLS_LANG", EnvironmentVariableTarget.User) ?? "(null)");
 
 try
 {
@@ -135,6 +127,9 @@ try
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         db.Database.EnsureCreated();
 
+        // Schema migrations (no EF Migrations — add columns manually)
+        MigrateSchema(db);
+
         if (!db.Users.Any())
         {
             var adminUser = new HospitalStats.Api.Models.User
@@ -201,4 +196,21 @@ catch (Exception ex)
 finally
 {
     Log.CloseAndFlush();
+}
+
+// Apply schema changes that would normally be EF migrations.
+// Called inside the service scope so DbContext is available.
+static void MigrateSchema(HospitalStats.Api.Data.AppDbContext db)
+{
+    // QueryJoins.LeftDateTrunc — added 2026-05-27
+    try
+    {
+        db.Database.ExecuteSqlRaw(
+            "ALTER TABLE QueryJoins ADD COLUMN LeftDateTrunc INTEGER NOT NULL DEFAULT 0");
+        Log.Information("Schema migration: QueryJoins.LeftDateTrunc column added");
+    }
+    catch
+    {
+        // Column already exists, or table doesn't exist yet (fresh DB handled by EnsureCreated)
+    }
 }

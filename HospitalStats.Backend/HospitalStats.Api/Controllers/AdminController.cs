@@ -130,13 +130,23 @@ public class AdminController : ControllerBase
         if (ds == null) return new List<string>();
 
         var connStr = _dsService.Decrypt(ds.ConnectionString);
+        var charSetOverride = ds.CharSetOverride;
+        var useHexEncoding = !string.IsNullOrEmpty(charSetOverride);
         using var conn = new OracleConnection(connStr);
         await conn.OpenAsync();
 
         var schema = metaTable.SchemaName ?? "HOSPITAL";
-        var sql = $"SELECT \"DEPT_NAME\" FROM (SELECT DISTINCT \"DEPT_NAME\", \"SERIAL_NO\" FROM \"{schema}\".\"DEPT_DICT\") ORDER BY \"SERIAL_NO\"";
+        var colExpr = useHexEncoding
+            ? $"RAWTOHEX(UTL_RAW.CAST_TO_RAW(\"DEPT_NAME\")) as \"DEPT_NAME\""
+            : "\"DEPT_NAME\"";
+        var sql = $"SELECT {colExpr} FROM (SELECT DISTINCT \"DEPT_NAME\", \"SERIAL_NO\" FROM \"{schema}\".\"DEPT_DICT\") ORDER BY \"SERIAL_NO\"";
         var values = await conn.QueryAsync<string>(sql);
-        return values.Where(v => v != null).ToList();
+        return values
+            .Where(v => v != null)
+            .Select(v => useHexEncoding
+                ? QueryExecutionService.DecodeHexString(v!, charSetOverride)
+                : QueryExecutionService.ConvertEncoding(v!, charSetOverride))
+            .ToList();
     }
 
     // ===== Roles =====

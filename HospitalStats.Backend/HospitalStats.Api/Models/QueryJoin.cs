@@ -22,4 +22,8 @@ public class QueryJoin
     public MetaColumn? RightMetaColumn { get; set; }
 
     public int SortOrder { get; set; }
+
+    /// <summary>When true, wraps the left column with TRUNC() — useful when one
+    /// side stores date+time and the other stores date only.</summary>
+    public bool LeftDateTrunc { get; set; }
 }

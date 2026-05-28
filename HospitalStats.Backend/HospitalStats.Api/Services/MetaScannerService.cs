@@ -12,13 +12,15 @@ public class MetaScannerService
     private readonly AppDbContext _db;
     private readonly DataSourceService _dsService;
     private readonly ILogger<MetaScannerService> _logger;
+    private readonly IServiceScopeFactory _scopeFactory;
 
     public MetaScannerService(AppDbContext db, DataSourceService dsService,
-        ILogger<MetaScannerService> logger)
+        ILogger<MetaScannerService> logger, IServiceScopeFactory scopeFactory)
     {
         _db = db;
         _dsService = dsService;
         _logger = logger;
+        _scopeFactory = scopeFactory;
     }
 
     public async Task<ScanResult> ScanAsync(int dataSourceId, string? schemaFilter = null)
@@ -27,7 +29,8 @@ public class MetaScannerService
         if (ds == null) throw new ArgumentException("数据源不存在");
 
         var connStr = _dsService.Decrypt(ds.ConnectionString);
-        var schema = schemaFilter ?? ds.Schema ?? GetDefaultSchema(connStr);
+        var charSetOverride = ds.CharSetOverride;
+        var schema = (schemaFilter ?? ds.Schema ?? GetDefaultSchema(connStr)).ToUpperInvariant();
 
         var result = new ScanResult { Schema = schema };
 
@@ -40,9 +43,9 @@ public class MetaScannerService
         await _db.SaveChangesAsync();
 
         // scan tables
-        var tables = await ScanTablesAsync(conn, schema);
+        var tables = await ScanTablesAsync(conn, schema, charSetOverride);
         // scan views
-        var views = await ScanViewsAsync(conn, schema);
+        var views = await ScanViewsAsync(conn, schema, charSetOverride);
 
         result.TablesFound = tables.Count;
         result.ViewsFound = views.Count;
@@ -65,7 +68,7 @@ public class MetaScannerService
                 existing.IsView = item.IsView;
                 existing.UpdatedAt = DateTime.UtcNow;
                 updated++;
-                await ScanColumnsAsync(conn, existing, charSetInfo);
+                await ScanColumnsAsync(conn, existing, charSetInfo, charSetOverride);
             }
             else
             {
@@ -73,29 +76,53 @@ public class MetaScannerService
                 _db.MetaTables.Add(item);
                 await _db.SaveChangesAsync();
                 created++;
-                await ScanColumnsAsync(conn, item, charSetInfo);
+                await ScanColumnsAsync(conn, item, charSetInfo, charSetOverride);
             }
         }
 
         await _db.SaveChangesAsync();
 
+        result.Created = created;
+        result.Updated = updated;
+
         // probe Chinese data for each VARCHAR2 column if US7ASCII
+        // run in background — can take minutes for large schemas (one query per column),
+        // and this only adds optional comments, never blocks scanning
         var isUs7Ascii = charSetInfo.Contains("US7ASCII", StringComparison.OrdinalIgnoreCase);
         if (isUs7Ascii)
         {
-            _logger.LogInformation("US7ASCII detected, probing Chinese data encoding");
-            await ProbeChineseEncodingAsync(conn, dataSourceId, charSetInfo);
+            var dsIdCapture = dataSourceId;
+            var charSetCapture = charSetInfo;
+            var connStrCapture = connStr;
+            _logger.LogInformation("US7ASCII detected, probing Chinese data encoding in background");
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using var scope = _scopeFactory.CreateScope();
+                    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    using var probeConn = new OracleConnection(connStrCapture);
+                    await probeConn.OpenAsync();
+                    await ProbeChineseEncodingAsync(probeConn, db, dsIdCapture, charSetCapture);
+                    _logger.LogInformation("Chinese encoding probe completed for datasource {DsId}", dsIdCapture);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Chinese encoding probe failed for datasource {DsId}", dsIdCapture);
+                }
+            });
         }
-
-        result.Created = created;
-        result.Updated = updated;
 
         return result;
     }
 
-    private async Task<List<MetaTable>> ScanTablesAsync(OracleConnection conn, string schema)
+    private async Task<List<MetaTable>> ScanTablesAsync(OracleConnection conn, string schema, string? charSetOverride)
     {
-        var sql = "SELECT OWNER, TABLE_NAME, COMMENTS FROM ALL_TAB_COMMENTS " +
+        var useHexEncoding = !string.IsNullOrEmpty(charSetOverride);
+        var commentExpr = useHexEncoding
+            ? "RAWTOHEX(UTL_RAW.CAST_TO_RAW(COMMENTS)) as COMMENTS"
+            : "COMMENTS";
+        var sql = $"SELECT OWNER, TABLE_NAME, {commentExpr} FROM ALL_TAB_COMMENTS " +
                   "WHERE OWNER = :p_schema AND TABLE_TYPE = 'TABLE' ORDER BY TABLE_NAME";
         var tables = await conn.QueryAsync<OracleTable>(sql, new { p_schema = schema });
 
@@ -103,15 +130,21 @@ public class MetaScannerService
         {
             TableName = t.TABLE_NAME,
             SchemaName = t.OWNER,
-            Description = t.COMMENTS,
+            Description = useHexEncoding
+                ? QueryExecutionService.DecodeHexString(t.COMMENTS ?? "", charSetOverride)
+                : QueryExecutionService.ConvertEncoding(t.COMMENTS ?? "", charSetOverride),
             IsView = false
         }).ToList();
     }
 
-    private async Task<List<MetaTable>> ScanViewsAsync(OracleConnection conn, string schema)
+    private async Task<List<MetaTable>> ScanViewsAsync(OracleConnection conn, string schema, string? charSetOverride)
     {
+        var useHexEncoding = !string.IsNullOrEmpty(charSetOverride);
+        var commentExpr = useHexEncoding
+            ? "RAWTOHEX(UTL_RAW.CAST_TO_RAW(COMMENTS)) as COMMENTS"
+            : "COMMENTS";
         var views = await conn.QueryAsync<OracleTable>(
-            @"SELECT OWNER, TABLE_NAME, COMMENTS
+            $@"SELECT OWNER, TABLE_NAME, {commentExpr}
               FROM ALL_TAB_COMMENTS
               WHERE OWNER = :p_schema AND TABLE_TYPE = 'VIEW'
               ORDER BY TABLE_NAME",
@@ -121,17 +154,23 @@ public class MetaScannerService
         {
             TableName = t.TABLE_NAME,
             SchemaName = t.OWNER,
-            Description = t.COMMENTS,
+            Description = useHexEncoding
+                ? QueryExecutionService.DecodeHexString(t.COMMENTS ?? "", charSetOverride)
+                : QueryExecutionService.ConvertEncoding(t.COMMENTS ?? "", charSetOverride),
             IsView = true
         }).ToList();
     }
 
-    private async Task ScanColumnsAsync(OracleConnection conn, MetaTable table, string charSetInfo)
+    private async Task ScanColumnsAsync(OracleConnection conn, MetaTable table, string charSetInfo, string? charSetOverride)
     {
+        var useHexEncoding = !string.IsNullOrEmpty(charSetOverride);
+        var commentExpr = useHexEncoding
+            ? "RAWTOHEX(UTL_RAW.CAST_TO_RAW(cc.COMMENTS)) as COMMENTS"
+            : "cc.COMMENTS";
         var columns = await conn.QueryAsync<OracleColumn>(
-            @"SELECT c.COLUMN_NAME, c.DATA_TYPE, c.DATA_LENGTH,
+            $@"SELECT c.COLUMN_NAME, c.DATA_TYPE, c.DATA_LENGTH,
                      c.DATA_PRECISION, c.DATA_SCALE, c.NULLABLE,
-                     cc.COMMENTS, c.COLUMN_ID
+                     {commentExpr}, c.COLUMN_ID
               FROM ALL_TAB_COLUMNS c
               LEFT JOIN ALL_COL_COMMENTS cc
                 ON cc.OWNER = c.OWNER
@@ -143,6 +182,9 @@ public class MetaScannerService
 
         foreach (var col in columns)
         {
+            var comments = useHexEncoding
+                ? QueryExecutionService.DecodeHexString(col.COMMENTS ?? "", charSetOverride)
+                : QueryExecutionService.ConvertEncoding(col.COMMENTS ?? "", charSetOverride);
             var existing = await _db.MetaColumns
                 .FirstOrDefaultAsync(c => c.MetaTableId == table.Id
                     && c.ColumnName == col.COLUMN_NAME);
@@ -155,10 +197,10 @@ public class MetaScannerService
                 existing.DataPrecision = col.DATA_PRECISION;
                 existing.DataScale = col.DATA_SCALE;
                 existing.Nullable = col.NULLABLE == "Y";
-                existing.Comment = col.COMMENTS;
-                if (string.IsNullOrEmpty(existing.Alias) && !string.IsNullOrEmpty(col.COMMENTS))
+                existing.Comment = comments;
+                if (!string.IsNullOrEmpty(comments))
                 {
-                    existing.Alias = col.COMMENTS;
+                    existing.Alias = comments;
                 }
                 existing.UpdatedAt = DateTime.UtcNow;
             }
@@ -173,8 +215,8 @@ public class MetaScannerService
                     DataPrecision = col.DATA_PRECISION,
                     DataScale = col.DATA_SCALE,
                     Nullable = col.NULLABLE == "Y",
-                    Comment = col.COMMENTS,
-                    Alias = col.COMMENTS,
+                    Comment = comments,
+                    Alias = comments,
                     SortOrder = col.COLUMN_ID
                 };
                 _db.MetaColumns.Add(newCol);
@@ -193,15 +235,17 @@ public class MetaScannerService
     }
 
     private async Task ProbeChineseEncodingAsync(OracleConnection conn,
-        int dataSourceId, string charSetInfo)
+        AppDbContext db, int dataSourceId, string charSetInfo)
     {
-        var tables = await _db.MetaTables
+        var tables = await db.MetaTables
             .Where(t => t.DataSourceId == dataSourceId)
             .ToListAsync();
 
+        var foundChinese = false;
+
         foreach (var table in tables)
         {
-            var varcharCols = await _db.MetaColumns
+            var varcharCols = await db.MetaColumns
                 .Where(c => c.MetaTableId == table.Id
                     && (c.DataType == "VARCHAR2" || c.DataType == "CHAR"))
                 .ToListAsync();
@@ -218,14 +262,27 @@ public class MetaScannerService
 
                     if (!string.IsNullOrEmpty(sample) && ContainsHighBytes(sample))
                     {
+                        foundChinese = true;
                         col.Comment = (col.Comment ?? "") + " [含中文字节]";
-                        await _db.SaveChangesAsync();
+                        await db.SaveChangesAsync();
                     }
                 }
                 catch
                 {
                     // skip problematic columns
                 }
+            }
+        }
+
+        // Auto-set CharSetOverride to GBK for US7ASCII databases with Chinese content
+        if (foundChinese)
+        {
+            var ds = await db.DataSources.FindAsync(dataSourceId);
+            if (ds != null && string.IsNullOrEmpty(ds.CharSetOverride))
+            {
+                ds.CharSetOverride = "GBK";
+                await db.SaveChangesAsync();
+                _logger.LogInformation("Auto-set CharSetOverride=GBK for datasource {DsId}", dataSourceId);
             }
         }
     }

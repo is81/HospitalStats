@@ -115,12 +115,13 @@ onMounted(loadUsers);
 
     <el-dialog v-model="dialogVisible"
       :title="editingUser ? '编辑用户' : '新增用户'" width="460px">
-      <el-form :model="form" label-width="80px">
+      <el-form :model="form" label-width="80px" autocomplete="off">
         <el-form-item label="用户名" required>
-          <el-input v-model="form.username" :disabled="!!editingUser" />
+          <el-input v-model="form.username" :disabled="!!editingUser"
+            :autocomplete="editingUser ? 'off' : 'new-username'" />
         </el-form-item>
         <el-form-item label="密码" :required="!editingUser">
-          <el-input v-model="form.password" type="password"
+          <el-input v-model="form.password" type="password" autocomplete="new-password"
             :placeholder="editingUser ? '留空不修改' : '请输入密码'" show-password />
         </el-form-item>
         <el-form-item label="显示名">
