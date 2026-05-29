@@ -15,8 +15,10 @@ dotnet build --no-restore     # 快速编译检查
 ```bash
 cd F:\HospitalStats\hospital-stats-frontend
 npm run dev                   # 启动，监听 http://localhost:5173，/api 代理到 localhost:5000
-npm run build                 # 类型检查 + 生产构建
+npm run build                 # 类型检查 + 生产构建（含旧浏览器 polyfills）
 ```
+
+**浏览器兼容**：`@vitejs/plugin-legacy` + `.browserslistrc` 配置支持 Chrome 64+ / Firefox 67+ / Safari 12+ / Edge 79+（2018+ 浏览器）。构建时自动注入 polyfills（ES2015+ 语法转换 + 缺失 API 补齐），无需单独引入。
 
 **结束后端进程**（exe 常被 dotnet 进程锁定）:
 ```bash

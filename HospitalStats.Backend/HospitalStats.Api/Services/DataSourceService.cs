@@ -194,29 +194,42 @@ public class DataSourceService
         var key = ResolveEncryptionKey();
         var raw = Convert.FromBase64String(cipherText);
 
-        // Try new format first (IV prepended to ciphertext).
+        // Try old format first (zero IV) — all existing production data uses this.
+        try
+        {
+            var oldResult = DecryptWithIV(raw, key, new byte[16]);
+            if (IsValidConnString(oldResult)) return oldResult;
+        }
+        catch { /* not old format */ }
+
+        // Try new format (IV prepended to ciphertext).
         if (raw.Length >= 32)
         {
             try
             {
-                var result = DecryptWithIV(raw, key, raw[..16]);
-                if (IsValidConnString(result)) return result;
+                var newResult = DecryptWithIV(raw, key, raw[..16]);
+                if (IsValidConnString(newResult)) return newResult;
             }
-            catch { /* Fall through to old format */ }
+            catch { /* not new format either */ }
         }
 
-        // Old format (zero IV) for backward compatibility
+        // Last resort: return old format result (may be garbage, but caller handles)
         return DecryptWithIV(raw, key, new byte[16]);
     }
+
+    private static readonly string[] _oracleConnKeys =
+        ["Data Source", "User Id", "Password", "Connection Timeout", "Pooling",
+         "Min Pool Size", "Max Pool Size", "Enlist", "Load Balancing",
+         "HA Events", "Statement Cache Size", "Self Tuning"];
 
     private static bool IsValidConnString(string? s)
     {
         if (string.IsNullOrEmpty(s)) return false;
-        // Oracle connection strings contain key-value pairs like "Data Source=..."
-        // or start with "User Id=" etc. Garbage output from wrong decryption
-        // won't match this pattern.
-        return s.Contains("Data Source=", StringComparison.OrdinalIgnoreCase) ||
-               s.Contains("User Id=", StringComparison.OrdinalIgnoreCase);
+        // Garbage from wrong decryption typically has non-ASCII or control chars.
+        if (s.Any(c => (c < 0x20 || c > 0x7E) && c != '\r' && c != '\n' && c != '\t'))
+            return false;
+        // Must contain at least one recognizable Oracle connection string keyword.
+        return _oracleConnKeys.Any(k => s.Contains(k, StringComparison.OrdinalIgnoreCase));
     }
 
     private static string DecryptWithIV(byte[] raw, string key, byte[] iv)
