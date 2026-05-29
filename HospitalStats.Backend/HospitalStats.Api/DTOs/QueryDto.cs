@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace HospitalStats.Api.DTOs;
 
 // ===== Menu =====
@@ -18,7 +20,12 @@ public class MenuDto
 public class MenuSaveRequest
 {
     public int? ParentId { get; set; }
+
+    [Required]
+    [MaxLength(100)]
     public string Name { get; set; } = string.Empty;
+
+    [MaxLength(50)]
     public string? Icon { get; set; }
     public int SortOrder { get; set; }
     public int? QueryConfigId { get; set; }
@@ -50,13 +57,28 @@ public class QueryConfigDto
 
 public class QueryConfigSaveRequest
 {
+    [Required]
+    [MaxLength(200)]
     public string Name { get; set; } = string.Empty;
+
     public int MainTableId { get; set; }
+
+    [MaxLength(50)]
     public string DisplayType { get; set; } = "table";
+
+    [MaxLength(50)]
     public string? AggregateType { get; set; }
+
+    [MaxLength(128)]
     public string? AggregateColumn { get; set; }
+
+    [MaxLength(128)]
     public string? GroupByColumn { get; set; }
+
+    [MaxLength(128)]
     public string? SortColumn { get; set; }
+
+    [MaxLength(10)]
     public string? SortDirection { get; set; }
     public int? PageSize { get; set; } = 50;
     public bool IsEnabled { get; set; } = true;
@@ -105,13 +127,24 @@ public class QueryFilterDto
 public class QueryFilterSaveRequest
 {
     public int MetaColumnId { get; set; }
+
+    [Required]
+    [MaxLength(20)]
     public string Operator { get; set; } = "EQ";
+
+    [MaxLength(500)]
     public string? DefaultValue { get; set; }
     public bool IsRequired { get; set; }
+
+    [MaxLength(30)]
     public string ControlType { get; set; } = "input";
+
+    [MaxLength(200)]
     public string? Label { get; set; }
     public int SortOrder { get; set; }
     public bool IsContextFilter { get; set; }
+
+    [MaxLength(50)]
     public string? ContextKey { get; set; }
 }
 
@@ -132,6 +165,9 @@ public class QueryJoinDto
 public class QueryJoinSaveRequest
 {
     public int JoinTableId { get; set; }
+
+    [Required]
+    [MaxLength(10)]
     public string JoinType { get; set; } = "LEFT";
     public int LeftMetaColumnId { get; set; }
     public int RightMetaColumnId { get; set; }
@@ -143,6 +179,7 @@ public class QueryJoinSaveRequest
 
 public class SqlParseRequest
 {
+    [Required]
     public string Sql { get; set; } = "";
 }
 

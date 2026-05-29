@@ -1,4 +1,3 @@
-using Dapper;
 using HospitalStats.Api.Data;
 using HospitalStats.Api.DTOs;
 using HospitalStats.Api.Models;
@@ -6,7 +5,6 @@ using HospitalStats.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Oracle.ManagedDataAccess.Client;
 
 namespace HospitalStats.Api.Controllers;
 
@@ -123,30 +121,7 @@ public class AdminController : ControllerBase
     [HttpGet("dept-options")]
     public async Task<ActionResult<List<string>>> GetDeptOptions()
     {
-        var metaTable = await _db.MetaTables.FirstOrDefaultAsync(t => t.TableName == "DEPT_DICT");
-        if (metaTable == null) return new List<string>();
-
-        var ds = await _db.DataSources.FindAsync(metaTable.DataSourceId);
-        if (ds == null) return new List<string>();
-
-        var connStr = _dsService.Decrypt(ds.ConnectionString);
-        var charSetOverride = ds.CharSetOverride;
-        var useHexEncoding = !string.IsNullOrEmpty(charSetOverride);
-        using var conn = new OracleConnection(connStr);
-        await conn.OpenAsync();
-
-        var schema = metaTable.SchemaName ?? "HOSPITAL";
-        var colExpr = useHexEncoding
-            ? $"RAWTOHEX(UTL_RAW.CAST_TO_RAW(\"DEPT_NAME\")) as \"DEPT_NAME\""
-            : "\"DEPT_NAME\"";
-        var sql = $"SELECT {colExpr} FROM (SELECT DISTINCT \"DEPT_NAME\", \"SERIAL_NO\" FROM \"{schema}\".\"DEPT_DICT\") ORDER BY \"SERIAL_NO\"";
-        var values = await conn.QueryAsync<string>(sql);
-        return values
-            .Where(v => v != null)
-            .Select(v => useHexEncoding
-                ? QueryExecutionService.DecodeHexString(v!, charSetOverride)
-                : QueryExecutionService.ConvertEncoding(v!, charSetOverride))
-            .ToList();
+        return await _dsService.GetDeptOptionsAsync();
     }
 
     // ===== Roles =====

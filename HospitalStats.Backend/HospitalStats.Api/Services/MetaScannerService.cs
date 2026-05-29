@@ -254,6 +254,10 @@ public class MetaScannerService
 
             foreach (var col in varcharCols)
             {
+                // Guard against identifier injection via metadata poisoning
+                if (col.ColumnName.Contains('"') || table.SchemaName.Contains('"') || table.TableName.Contains('"'))
+                    continue;
+
                 try
                 {
                     var sample = await conn.QueryFirstOrDefaultAsync<string>(
@@ -263,13 +267,15 @@ public class MetaScannerService
                     if (!string.IsNullOrEmpty(sample) && ContainsHighBytes(sample))
                     {
                         foundChinese = true;
-                        col.Comment = (col.Comment ?? "") + " [含中文字节]";
+                        if (string.IsNullOrEmpty(col.Comment) || !col.Comment.Contains("[含中文字节]"))
+                            col.Comment = (col.Comment ?? "") + " [含中文字节]";
                         await db.SaveChangesAsync();
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // skip problematic columns
+                    _logger.LogDebug(ex, "Probe skipped column {Col} in {Schema}.{Table}",
+                        col.ColumnName, table.SchemaName, table.TableName);
                 }
             }
         }

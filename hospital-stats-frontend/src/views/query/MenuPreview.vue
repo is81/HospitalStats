@@ -7,8 +7,12 @@ const router = useRouter();
 const menus = ref<MenuItem[]>([]);
 
 async function loadMenus() {
-  const res = await queryApi.getMenus();
-  menus.value = res.data;
+  try {
+    const res = await queryApi.getMenus();
+    menus.value = res.data;
+  } catch {
+    menus.value = [];
+  }
 }
 
 function handleMenuClick(menu: MenuItem) {

@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace HospitalStats.Api.DTOs;
 
 public class BizDomainDto
@@ -11,7 +13,11 @@ public class BizDomainDto
 
 public class BizDomainCreateRequest
 {
+    [Required]
+    [MaxLength(50)]
     public string Name { get; set; } = string.Empty;
+
+    [MaxLength(200)]
     public string? Description { get; set; }
     public int SortOrder { get; set; }
 }
@@ -34,7 +40,10 @@ public class MetaTableDto
 
 public class MetaTableUpdateRequest
 {
+    [MaxLength(200)]
     public string? Alias { get; set; }
+
+    [MaxLength(500)]
     public string? Description { get; set; }
     public int? BizDomainId { get; set; }
     public bool IsEnabled { get; set; } = true;
@@ -60,6 +69,7 @@ public class MetaColumnDto
 
 public class MetaColumnUpdateRequest
 {
+    [MaxLength(200)]
     public string? Alias { get; set; }
     public bool IsQueryField { get; set; }
     public bool IsFilterField { get; set; }

@@ -132,6 +132,34 @@ dotnet test
 2. **Data SQL**：rawSql 外层包 hex 编码 SELECT（`HexEncodeRawSqlColumns`），对 string 类型输出列包裹 `RAWTOHEX(UTL_RAW.CAST_TO_RAW("col"))`，再套 ROWNUM 分页。筛选注入同理
 3. **ParseSelectAliases**：从 rawSql SELECT 子句中提取输出列别名，用于 hex 包装时匹配 string 列
 
+#### 向 US7ASCII 库插入中文测试数据
+
+US7ASCII 不接受 GBK 中文字节，直接用 `INSERT`/`UPDATE` 写中文会变成 `?`。必须用 `UTL_RAW.CAST_TO_VARCHAR2(HEXTORAW('<GBK_HEX>'))` 写入原始 GBK 字节。
+
+**PowerShell 生成 GBK HEX 并执行**：
+
+```bash
+# 1. 计算中文的 GBK HEX
+$enc = [System.Text.Encoding]::GetEncoding(936)
+$bytes = $enc.GetBytes("阿莫西林")
+[BitConverter]::ToString($bytes).Replace('-', '')
+# 输出: B0A2C4AACEF7C1D6
+
+# 2. 写入 UPDATE 语句（UTF8 no BOM）
+$sql = "UPDATE OUTP_BILL_ITEMS SET ITEM_NAME = UTL_RAW.CAST_TO_VARCHAR2(HEXTORAW('B0A2C4AACEF7C1D6')) WHERE ITEM_CODE = 'M001';`nEXIT;"
+[System.IO.File]::WriteAllText("C:\Temp\upd.sql", $sql, [System.Text.UTF8Encoding]::new($false))
+
+# 3. 执行（无需特殊 NLS_LANG）
+sqlplus -S "outpbill/outpbill@ORCL" "@C:\Temp\upd.sql"
+```
+
+**验证存储正确性**（查 HEX 而非直接读中文）：
+```sql
+SELECT ITEM_CODE, RAWTOHEX(UTL_RAW.CAST_TO_RAW(ITEM_NAME)) hex_name FROM OUTP_BILL_ITEMS;
+```
+
+应用层通过数据源 `CharSetOverride=gbk` + `QueryExecutionService` 的 hex 解码逻辑自动还原为中文显示，无需额外处理。
+
 ### 数据范围权限
 
 - **上下文筛选器**（`QueryFilter.IsContextFilter` + `ContextKey`）：配置查询时标记某个筛选条件为"按用户身份自动填充"。支持 `DeptName`（从 `DEPT_DICT` 获取科室名）、`UserId`（当前用户 ID）。

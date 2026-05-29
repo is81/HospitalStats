@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using HospitalStats.Api.DTOs;
 using HospitalStats.Api.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -68,5 +69,7 @@ public class DataSourcesController : ControllerBase
 
 public class TestConnectionStringRequest
 {
+    [Required]
+    [MaxLength(2000)]
     public string ConnectionString { get; set; } = string.Empty;
 }

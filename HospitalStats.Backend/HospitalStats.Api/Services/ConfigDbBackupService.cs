@@ -35,7 +35,7 @@ public class ConfigDbBackupService : BackgroundService
         {
             try
             {
-                await BackupAsync();
+                await BackupAsync(stoppingToken);
             }
             catch (Exception ex)
             {
@@ -46,7 +46,7 @@ public class ConfigDbBackupService : BackgroundService
         }
     }
 
-    private async Task BackupAsync()
+    private async Task BackupAsync(CancellationToken ct = default)
     {
         if (!File.Exists(_dbPath))
         {
@@ -54,18 +54,20 @@ public class ConfigDbBackupService : BackgroundService
             return;
         }
 
+        ct.ThrowIfCancellationRequested();
+
         Directory.CreateDirectory(_backupDir);
 
-        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
         var backupFile = Path.Combine(_backupDir, $"config_{timestamp}.db");
 
         // WAL checkpoint then file copy (safe for SQLite WAL mode)
         using (var source = new SqliteConnection($"Data Source={_dbPath}"))
         {
-            await source.OpenAsync();
+            await source.OpenAsync(ct);
             using var cmd = source.CreateCommand();
             cmd.CommandText = "PRAGMA wal_checkpoint(TRUNCATE);";
-            await cmd.ExecuteNonQueryAsync();
+            await cmd.ExecuteNonQueryAsync(ct);
         }
 
         File.Copy(_dbPath, backupFile, overwrite: true);

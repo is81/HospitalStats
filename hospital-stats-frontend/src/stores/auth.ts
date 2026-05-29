@@ -3,11 +3,19 @@ import { ref, computed } from 'vue';
 import { authApi } from '../api/auth';
 import router from '../router';
 
+function safeParseJsonArray<T>(key: string, fallback: T): T {
+  try {
+    return JSON.parse(localStorage.getItem(key) || '[]');
+  } catch {
+    return fallback;
+  }
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem('token') || '');
   const displayName = ref(localStorage.getItem('displayName') || '');
-  const roles = ref<string[]>(JSON.parse(localStorage.getItem('roles') || '[]'));
-  const menuIds = ref<number[]>(JSON.parse(localStorage.getItem('menuIds') || '[]'));
+  const roles = ref<string[]>(safeParseJsonArray('roles', []));
+  const menuIds = ref<number[]>(safeParseJsonArray('menuIds', []));
   const deptName = ref(localStorage.getItem('deptName') || '');
 
   const isLoggedIn = computed(() => !!token.value);

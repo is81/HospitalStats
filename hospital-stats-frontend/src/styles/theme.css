@@ -1,0 +1,119 @@
+/* ===== HospitalStats Clinical Precision Theme ===== */
+
+:root {
+  /* --- Primary: Teal (replaces default #409EFF blue) --- */
+  --el-color-primary: #0d9488;
+  --el-color-primary-light-3: #5eead4;
+  --el-color-primary-light-5: #99f6e4;
+  --el-color-primary-light-7: #ccfbf1;
+  --el-color-primary-light-8: #e6fffa;
+  --el-color-primary-light-9: #f0fdfa;
+  --el-color-primary-dark-2: #0f766e;
+
+  /* --- Functional colors --- */
+  --el-color-success: #10b981;
+  --el-color-warning: #f59e0b;
+  --el-color-danger: #ef4444;
+  --el-color-info: #64748b;
+
+  /* --- Typography --- */
+  --el-font-family: "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB",
+    "WenQuanYi Micro Hei", sans-serif;
+  --el-font-size-base: 14px;
+
+  /* --- Borders & Radius --- */
+  --el-border-radius-base: 6px;
+  --el-border-radius-small: 4px;
+  --el-border-radius-round: 20px;
+  --el-border-color: #e2e8f0;
+  --el-border-color-light: #f1f5f9;
+  --el-border-color-lighter: #f8fafc;
+
+  /* --- Backgrounds --- */
+  --el-bg-color: #ffffff;
+  --el-bg-color-page: #f1f5f9;
+  --el-bg-color-overlay: #ffffff;
+
+  /* --- Text --- */
+  --el-text-color-primary: #1e293b;
+  --el-text-color-regular: #334155;
+  --el-text-color-secondary: #64748b;
+  --el-text-color-placeholder: #94a3b8;
+  --el-text-color-disabled: #cbd5e1;
+
+  /* --- Shadows --- */
+  --el-box-shadow-light: 0 1px 3px rgba(15, 23, 42, 0.06);
+  --el-box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+  --el-box-shadow-dark: 0 4px 12px rgba(15, 23, 42, 0.12);
+}
+
+/* --- Global typography — applied to everything, not just Element Plus components --- */
+html, body, #app {
+  font-family: "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB",
+    "WenQuanYi Micro Hei", sans-serif;
+}
+body {
+  background: #f1f5f9;
+  color: #334155;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* --- Button refinements --- */
+.el-button--primary {
+  --el-button-font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* --- Card refinements --- */
+.el-card {
+  border-radius: 8px;
+  border-color: #e2e8f0;
+}
+
+/* --- Table header --- */
+.el-table th.el-table__cell {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+/* --- Steps --- */
+.el-step__head.is-success {
+  color: var(--el-color-primary);
+  border-color: var(--el-color-primary);
+}
+
+/* --- Tag overrides --- */
+.el-tag--success {
+  --el-tag-bg-color: #ecfdf5;
+  --el-tag-border-color: #a7f3d0;
+  --el-tag-text-color: #059669;
+}
+
+/* --- Pagination --- */
+.el-pagination .el-pager li.is-active {
+  font-weight: 600;
+}
+
+/* --- Input focus ring --- */
+.el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 1px var(--el-color-primary) inset;
+}
+
+/* --- Menu active item (non-sidebar menus) --- */
+.el-menu-item.is-active {
+  font-weight: 600;
+}
+
+/* --- Operator dropdown: show code on hover --- */
+.op-code-dropdown .op-code {
+  display: none;
+  color: #a8abb2;
+  font-size: 12px;
+}
+.op-code-dropdown .el-select-dropdown__item:hover .op-code {
+  display: inline;
+}

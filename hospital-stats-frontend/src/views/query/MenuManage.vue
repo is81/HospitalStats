@@ -55,15 +55,19 @@ function openDialog(parent: number | null, menu?: MenuItem) {
 
 async function saveMenu() {
   if (!form.value.name) { ElMessage.warning('请输入菜单名称'); return; }
-  if (editingMenu.value) {
-    await queryApi.updateMenu(editingMenu.value.id, form.value);
-    ElMessage.success('已更新');
-  } else {
-    await queryApi.createMenu(form.value);
-    ElMessage.success('已创建');
+  try {
+    if (editingMenu.value) {
+      await queryApi.updateMenu(editingMenu.value.id, form.value);
+      ElMessage.success('已更新');
+    } else {
+      await queryApi.createMenu(form.value);
+      ElMessage.success('已创建');
+    }
+    dialogVisible.value = false;
+    await loadMenus();
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '保存失败');
   }
-  dialogVisible.value = false;
-  await loadMenus();
 }
 
 async function deleteMenu(id: number) {

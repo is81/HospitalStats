@@ -22,13 +22,17 @@ async function loadColumns() {
 }
 
 async function saveColumn(col: MetaColumn) {
-  await metaApi.updateColumn(col.id, {
-    alias: col.alias ?? undefined,
-    isQueryField: col.isQueryField,
-    isFilterField: col.isFilterField,
-    isDisplayField: col.isDisplayField,
-  });
-  ElMessage.success('已保存');
+  try {
+    await metaApi.updateColumn(col.id, {
+      alias: col.alias ?? undefined,
+      isQueryField: col.isQueryField,
+      isFilterField: col.isFilterField,
+      isDisplayField: col.isDisplayField,
+    });
+    ElMessage.success('已保存');
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '保存失败');
+  }
 }
 
 function goBack() {

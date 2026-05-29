@@ -67,6 +67,8 @@ public class QueryExecutionService
         var contextValues = ResolveContextValues();
 
         var hasRawSql = !string.IsNullOrEmpty(SanitizeRawSql(config.RawSql));
+        if (hasRawSql)
+            ValidateRawSqlReadOnly(SanitizeRawSql(config.RawSql)!);
         // Both Count and Data use rawSql when available. Filters are injected into
         // rawSql via InjectWhereIntoRawSql. For US7ASCII, the hex-encoding wrapper
         // (HexEncodeRawSqlColumns) handles string column encoding for Data SQL.
@@ -296,6 +298,18 @@ public class QueryExecutionService
         return rawSql.TrimEnd(';').TrimEnd();
     }
 
+    internal static void ValidateRawSqlReadOnly(string sql)
+    {
+        var t = sql.TrimStart();
+        if (t.Length == 0) return;
+        // Oracle: first keyword must be SELECT or WITH (CTE)
+        var firstWord = t.Length >= 6 ? t[..6] : t;
+        if (firstWord.StartsWith("SELECT", StringComparison.OrdinalIgnoreCase) ||
+            firstWord.StartsWith("WITH", StringComparison.OrdinalIgnoreCase))
+            return;
+        throw new InvalidOperationException("仅允许 SELECT 和 WITH 查询，不支持数据修改操作。");
+    }
+
     /// <summary>Returns true when the user has changed at least one filter from its default
     /// value on the preview page. When this is true we fall back to config-based SQL so
     /// user filter actions actually take effect. When false (all filters at defaults),
@@ -318,6 +332,27 @@ public class QueryExecutionService
             return (rawFilterValue[..idx], rawFilterValue[(idx + sep.Length)..]);
 
         return (configOperator, rawFilterValue);
+    }
+
+    /// <summary>
+    /// Register parameter value(s) for a filter, splitting comma-separated values
+    /// for BETWEEN/NOT BETWEEN operators into _from and _to parameters.
+    /// </summary>
+    internal static void RegisterParamValues(Dictionary<string, string> paramValues, string key,
+        string op, string value, Func<string, string>? encode = null)
+    {
+        if (op is "BETWEEN" or "NOT BETWEEN")
+        {
+            var parts = value.Split(',', 2);
+            var from = parts[0].Trim();
+            var to = parts.Length > 1 ? parts[1].Trim() : "";
+            paramValues[key + "_from"] = encode != null ? encode(from) : from;
+            paramValues[key + "_to"] = encode != null ? encode(to) : to;
+        }
+        else
+        {
+            paramValues[key] = encode != null ? encode(value) : value;
+        }
     }
 
     internal static bool HasUserFilterInput(QueryConfig config, Dictionary<string, string> userFilters)
@@ -348,6 +383,9 @@ public class QueryExecutionService
             var rawAliases = ExtractAliasesFromRawSql(rawSql);
 var rawWhere = BuildOuterWhereForRawSql(config, userFilters, contextValues, paramValues, charSetOverride, rawAliases);
             var innerSql = InjectWhereIntoRawSql(rawSql, rawWhere);
+            // Hex-encode inline Chinese literals in JOIN / subquery conditions
+            if (!string.IsNullOrEmpty(charSetOverride))
+                innerSql = HexEncodeInlineLiterals(innerSql, charSetOverride);
             return ($"SELECT COUNT(*) FROM ({innerSql}) \"_cnt\"",
                 new Dictionary<string, object?>());
         }
@@ -372,9 +410,11 @@ var rawWhere = BuildOuterWhereForRawSql(config, userFilters, contextValues, para
 var rawWhere = BuildOuterWhereForRawSql(config, userFilters, contextValues, paramValues, charSetOverride, rawAliases);
             innerSql = InjectWhereIntoRawSql(rawSql, rawWhere);
 
-            // For US7ASCII: hex-encode string column references in rawSql SELECT.
+            // For US7ASCII: hex-encode inline non-ASCII string literals in the raw
+            // SQL (JOIN conditions, subqueries, etc.) before other hex wrapping.
             if (useHexEncoding)
             {
+                innerSql = HexEncodeInlineLiterals(innerSql, charSetOverride!);
                 innerSql = HexEncodeRawSqlColumns(innerSql, config, rawAliases);
             }
         }
@@ -648,6 +688,71 @@ var rawWhere = BuildOuterWhereForRawSql(config, userFilters, contextValues, para
         return $"SELECT {string.Join(", ", wrapped)} FROM ({rawSql}) \"_raw\"";
     }
 
+    /// <summary>
+    /// Replace non-ASCII characters in SQL string literals with their hex-encoded
+    /// equivalents, so they survive US7ASCII Oracle transport. Only modifies
+    /// content inside single-quoted strings; SQL keywords and identifiers are untouched.
+    /// </summary>
+    internal static string HexEncodeInlineLiterals(string sql, string sourceEncoding)
+    {
+        var sb = new StringBuilder();
+        var literalStart = -1;
+        var depth = 0;
+        var contentBuf = new StringBuilder();
+
+        for (int i = 0; i < sql.Length; i++)
+        {
+            var ch = sql[i];
+            if (ch == '\'')
+            {
+                if (depth == 0)
+                {
+                    depth = 1;
+                    literalStart = i;
+                    contentBuf.Clear();
+                }
+                else if (i + 1 < sql.Length && sql[i + 1] == '\'')
+                {
+                    // Oracle escaped quote: ''
+                    contentBuf.Append("''");
+                    i++; // skip second quote
+                }
+                else
+                {
+                    // End of string literal
+                    var content = contentBuf.ToString();
+                    if (ContainsNonAscii(content))
+                    {
+                        var enc = Encoding.GetEncoding(sourceEncoding);
+                        var hex = Convert.ToHexString(enc.GetBytes(content));
+                        sb.Append($"UTL_RAW.CAST_TO_VARCHAR2(HEXTORAW('{hex}'))");
+                    }
+                    else
+                    {
+                        sb.Append('\'');
+                        sb.Append(content);
+                        sb.Append('\'');
+                    }
+                    depth = 0;
+                }
+            }
+            else if (depth > 0)
+            {
+                contentBuf.Append(ch);
+            }
+            else
+            {
+                sb.Append(ch);
+            }
+        }
+
+        // Unclosed string — append rest as-is
+        if (depth > 0 && literalStart >= 0)
+            sb.Append(sql[literalStart..]);
+
+        return sb.ToString();
+    }
+
     /// <summary>Parse output column aliases from rawSql's SELECT clause.
     /// Handles: "func()alias", "col AS alias", "col \"alias\"", "tbl.col", "col".</summary>
     internal static List<string> ParseSelectAliases(string rawSql)
@@ -791,13 +896,14 @@ var rawWhere = BuildOuterWhereForRawSql(config, userFilters, contextValues, para
                 parts.Add(OperatorToSql(colExpr, effectiveOp, paramName, isDate));
                 // Hex-encoded value must always overwrite — the original Chinese
                 // text would get garbled through US7ASCII parameter transport.
-                paramValues[filter.Id.ToString()] = hexValue;
+                RegisterParamValues(paramValues, filter.Id.ToString(), effectiveOp, effectiveVal,
+                    (v) => EncodeNonAsciiValue(v, effectiveOp, charSetOverride));
             }
             else
             {
                 var colExpr = qualified;
                 parts.Add(OperatorToSql(colExpr, effectiveOp, paramName, isDate));
-                paramValues[filter.Id.ToString()] = effectiveVal;
+                RegisterParamValues(paramValues, filter.Id.ToString(), effectiveOp, effectiveVal, null);
             }
         }
         return string.Join(" AND ", parts);
@@ -853,12 +959,13 @@ var rawWhere = BuildOuterWhereForRawSql(config, userFilters, contextValues, para
                 parts.Add(OperatorToSql(colExpr, effectiveOp, paramName, isDate));
                 // Hex-encoded value must always overwrite — the original Chinese
                 // text would get garbled through US7ASCII parameter transport.
-                paramValues[filter.Id.ToString()] = hexValue;
+                RegisterParamValues(paramValues, filter.Id.ToString(), effectiveOp, effectiveVal,
+                    (v) => EncodeNonAsciiValue(v, effectiveOp, charSetOverride));
             }
             else
             {
                 parts.Add(OperatorToSql(colExpr, effectiveOp, paramName, isDate));
-                paramValues[filter.Id.ToString()] = effectiveVal;
+                RegisterParamValues(paramValues, filter.Id.ToString(), effectiveOp, effectiveVal, null);
             }
         }
         return string.Join(" AND ", parts);

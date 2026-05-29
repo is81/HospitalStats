@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { queryApi, type QueryConfigDetail } from '../../api/query';
@@ -160,6 +160,7 @@ function getFilterLabel(f: { label?: string | null; columnAlias?: string | null;
 }
 
 onMounted(loadConfig);
+onUnmounted(() => { chartInstance?.dispose(); });
 </script>
 
 <template>

@@ -24,9 +24,6 @@ public class SqlParsingService
         if (Regex.IsMatch(sql, @"\bSELECT\s+\*", RegexOptions.IgnoreCase))
             throw new ArgumentException("不支持 SELECT *，请展开为具体列名");
 
-        if (Regex.IsMatch(sql, @"\bSELECT\s+\*", RegexOptions.IgnoreCase))
-            throw new ArgumentException("不支持 SELECT *，请展开为具体列名");
-
         if (!Regex.IsMatch(sql, @"\bSELECT\b", RegexOptions.IgnoreCase))
             throw new ArgumentException("请输入有效的 SELECT 查询语句");
 

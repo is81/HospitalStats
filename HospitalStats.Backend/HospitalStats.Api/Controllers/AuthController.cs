@@ -71,9 +71,6 @@ public class AuthController : ControllerBase
         if (!BCrypt.Net.BCrypt.Verify(request.OldPassword, user.PasswordHash))
             return BadRequest(new { message = "原密码错误" });
 
-        if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 6)
-            return BadRequest(new { message = "新密码至少6位" });
-
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
         await _db.SaveChangesAsync();
 

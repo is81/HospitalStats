@@ -100,13 +100,21 @@ const router = createRouter({
   routes,
 });
 
+function safeParseJsonArray<T>(key: string, fallback: T): T {
+  try {
+    return JSON.parse(localStorage.getItem(key) || '[]');
+  } catch {
+    return fallback;
+  }
+}
+
 router.beforeEach((to, _from) => {
   if (to.meta.noAuth) return true;
   const token = localStorage.getItem('token');
   if (!token) return { name: 'Login' };
 
   if (to.meta.admin) {
-    const roles: string[] = JSON.parse(localStorage.getItem('roles') || '[]');
+    const roles: string[] = safeParseJsonArray('roles', []);
     if (!roles.includes('admin')) return { name: 'MenuPreview' };
   }
 
