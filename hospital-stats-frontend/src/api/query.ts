@@ -85,6 +85,7 @@ export interface QueryConfigDetail {
   isEnabled: boolean;
   updatedAt: string;
   rawSql: string | null;
+  originalSql: string | null;
   fields: QueryFieldInfo[];
   filters: QueryFilterInfo[];
   joins: QueryJoinInfo[];
@@ -102,6 +103,7 @@ export interface QueryConfigSave {
   pageSize?: number;
   isEnabled: boolean;
   rawSql?: string | null;
+  originalSql?: string | null;
   fields: { metaColumnId: number; alias?: string; sortOrder: number; aggregateFunc?: string }[];
   filters: { metaColumnId: number; operator: string; defaultValue?: string; isRequired: boolean; controlType: string; label?: string; sortOrder: number; isContextFilter?: boolean; contextKey?: string | null }[];
   joins: { joinTableId: number; joinType: string; leftMetaColumnId: number; rightMetaColumnId: number; sortOrder: number; leftDateTrunc: boolean }[];
@@ -151,6 +153,7 @@ export interface SqlParseResponse {
   groupByColumn: string | null;
   unmatchedColumns: string[];
   rawSql: string | null;
+  originalSql: string | null;
   unsupportedPattern: string | null;
 }
 

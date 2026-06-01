@@ -203,11 +203,18 @@ finally
 static void MigrateSchema(HospitalStats.Api.Data.AppDbContext db)
 {
     // QueryJoins.LeftDateTrunc — added 2026-05-27
+    TryAddColumn(db, "QueryJoins", "LeftDateTrunc", "INTEGER NOT NULL DEFAULT 0");
+    // QueryConfigs.OriginalSql — added 2026-05-29
+    TryAddColumn(db, "QueryConfigs", "OriginalSql", "TEXT");
+}
+
+static void TryAddColumn(HospitalStats.Api.Data.AppDbContext db, string table, string column, string type)
+{
     try
     {
         db.Database.ExecuteSqlRaw(
-            "ALTER TABLE QueryJoins ADD COLUMN LeftDateTrunc INTEGER NOT NULL DEFAULT 0");
-        Log.Information("Schema migration: QueryJoins.LeftDateTrunc column added");
+            $"ALTER TABLE {table} ADD COLUMN {column} {type}");
+        Log.Information("Schema migration: {Table}.{Column} column added", table, column);
     }
     catch
     {

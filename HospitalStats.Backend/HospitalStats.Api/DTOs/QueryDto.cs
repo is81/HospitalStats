@@ -50,6 +50,7 @@ public class QueryConfigDto
     public bool IsEnabled { get; set; }
     public DateTime UpdatedAt { get; set; }
     public string? RawSql { get; set; }
+    public string? OriginalSql { get; set; }
     public List<QueryFieldDto> Fields { get; set; } = new();
     public List<QueryFilterDto> Filters { get; set; } = new();
     public List<QueryJoinDto> Joins { get; set; } = new();
@@ -83,6 +84,7 @@ public class QueryConfigSaveRequest
     public int? PageSize { get; set; } = 50;
     public bool IsEnabled { get; set; } = true;
     public string? RawSql { get; set; }
+    public string? OriginalSql { get; set; }
     public List<QueryFieldSaveRequest> Fields { get; set; } = new();
     public List<QueryFilterSaveRequest> Filters { get; set; } = new();
     public List<QueryJoinSaveRequest> Joins { get; set; } = new();
@@ -195,6 +197,7 @@ public class SqlParseResponse
     public string? GroupByColumn { get; set; }
     public List<string> UnmatchedColumns { get; set; } = new();
     public string? RawSql { get; set; }
+    public string? OriginalSql { get; set; }
     public string? UnsupportedPattern { get; set; }
 }
 

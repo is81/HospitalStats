@@ -142,8 +142,11 @@ public class SqlParsingService
             .Where(s => !string.IsNullOrEmpty(s))
             .ToList();
 
-        // Strip matched filter conditions from rawSql to prevent US7ASCII double-filtering.
-        // Inner rawSql keeps only JOIN conditions; outer WHERE applies hex-encoded filters correctly.
+        // Save the rawSql BEFORE stripping matched filters. The stripped version
+        // is stored as rawSql for execution (to prevent US7ASCII double-filtering),
+        // while OriginalSql preserves the user's original input for re-editing.
+        response.OriginalSql = response.RawSql;
+
         var filterTexts = new HashSet<string>(
             response.Filters
                 .Where(f => f.Matched && !string.IsNullOrEmpty(f.OriginalText))

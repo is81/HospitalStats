@@ -38,6 +38,7 @@ public class QueryConfig
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     public string? RawSql { get; set; }
+    public string? OriginalSql { get; set; }
 
     public List<QueryField> Fields { get; set; } = new();
     public List<QueryFilter> Filters { get; set; } = new();

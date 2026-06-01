@@ -163,28 +163,26 @@ public class QueryExecutionService
                     if (fixedVal != strVal)
                         val = fixedVal;
                 }
-                // Remap from SQL column name to display name (skip for rawSql — columns already have their own names)
-                var key = useRawSqlForData ? prop.Key
-                    : colDisplayMap.TryGetValue(prop.Key, out var display) ? display : prop.Key;
+                // Remap from SQL column name to display name using configured alias
+                var key = colDisplayMap.TryGetValue(prop.Key, out var display) ? display : prop.Key;
                 dict[key] = val;
             }
             resultRows.Add(dict);
         }
 
-        // Build columns list: for rawSql, use result keys; otherwise use configured fields
+        // Build columns list: remap SQL column names to display names via configured aliases
         var columns = new List<string>();
         if (useRawSqlForData)
         {
-            if (resultRows.Count > 0)
-            {
-                columns = resultRows[0].Keys
+            var rawKeys = resultRows.Count > 0
+                ? resultRows[0].Keys
                     .Where(k => !k.Equals("RN", StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-            }
-            else
+                    .ToList()
+                : ParseSelectAliases(SanitizeRawSql(config.RawSql)!);
+
+            foreach (var key in rawKeys)
             {
-                // No rows — derive column names from rawSql SELECT aliases
-                columns = ParseSelectAliases(SanitizeRawSql(config.RawSql)!);
+                columns.Add(colDisplayMap.TryGetValue(key, out var display) ? display : key);
             }
         }
         else

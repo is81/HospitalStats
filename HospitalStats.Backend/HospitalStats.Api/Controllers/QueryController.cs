@@ -198,7 +198,8 @@ public class QueryController : ControllerBase
             SortDirection = req.SortDirection,
             PageSize = req.PageSize,
             IsEnabled = req.IsEnabled,
-            RawSql = req.RawSql
+            RawSql = req.RawSql,
+            OriginalSql = req.OriginalSql
         };
 
         SaveChildren(entity, req);
@@ -231,6 +232,7 @@ public class QueryController : ControllerBase
         entity.PageSize = req.PageSize;
         entity.IsEnabled = req.IsEnabled;
         entity.RawSql = req.RawSql;
+        entity.OriginalSql = req.OriginalSql;
         entity.UpdatedAt = DateTime.UtcNow;
 
         _db.QueryFields.RemoveRange(entity.Fields);
@@ -354,6 +356,7 @@ public class QueryController : ControllerBase
         IsEnabled = c.IsEnabled,
         UpdatedAt = c.UpdatedAt,
         RawSql = c.RawSql,
+        OriginalSql = c.OriginalSql,
         Fields = c.Fields.OrderBy(f => f.SortOrder).Select(f => new QueryFieldDto
         {
             Id = f.Id,

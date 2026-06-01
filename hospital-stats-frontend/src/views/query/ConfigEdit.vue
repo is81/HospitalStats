@@ -39,6 +39,7 @@ const form = reactive<QueryConfigSave>({
   pageSize: 50,
   isEnabled: true,
   rawSql: null,
+  originalSql: null,
   fields: [],
   filters: [],
   joins: [],
@@ -99,8 +100,9 @@ async function applySqlResult() {
 
   const r = sqlResult.value;
 
-  // Save raw SQL for direct execution
+  // Save raw SQL for direct execution, original for re-editing
   form.rawSql = r.rawSql;
+  form.originalSql = r.originalSql || sqlText.value;
 
   // populate form basic info
   if (r.mainTableId) {
@@ -177,11 +179,14 @@ async function applySqlResult() {
     }
     for (const j of r.joins) {
       if (j.joinTableId) {
-        loadColumns(j.joinTableId);
+        await loadColumns(j.joinTableId);
       }
     }
     selectedDsIds.value = [...dsIds];
   }
+
+  // Now that all table columns are loaded, auto-fill field aliases from MetaColumn
+  syncFieldAliases();
 
   // switch to manual mode and move to step 1
   inputMode.value = 'manual';
@@ -263,13 +268,15 @@ async function loadExistingConfig() {
   form.pageSize = c.pageSize ?? undefined;
   form.isEnabled = c.isEnabled;
   form.fields = c.fields.map(f => ({ metaColumnId: f.metaColumnId, alias: f.alias ?? undefined, sortOrder: f.sortOrder, aggregateFunc: f.aggregateFunc ?? undefined }));
+  syncFieldAliases();
   form.filters = c.filters.map(f => ({ metaColumnId: f.metaColumnId, operator: f.operator, defaultValue: f.defaultValue ?? undefined, isRequired: f.isRequired, controlType: f.controlType, label: f.label ?? undefined, sortOrder: f.sortOrder, isContextFilter: f.isContextFilter, contextKey: f.contextKey }));
   form.joins = c.joins.map(j => ({ joinTableId: j.joinTableId, joinType: j.joinType, leftMetaColumnId: j.leftMetaColumnId, rightMetaColumnId: j.rightMetaColumnId, sortOrder: j.sortOrder, leftDateTrunc: j.leftDateTrunc }));
 
-  // 恢复 rawSql（SQL导入的配置）
+  // 恢复 rawSql 和 originalSql（SQL导入的配置）
   form.rawSql = c.rawSql ?? null;
+  form.originalSql = c.originalSql ?? null;
   if (c.rawSql) {
-    sqlText.value = c.rawSql;
+    sqlText.value = c.originalSql || c.rawSql;
     inputMode.value = 'sql';
   }
 }
@@ -307,15 +314,29 @@ function moveDown(arr: { sortOrder: number }[], idx: number) {
   joinDsId.value[idx + 1] = tmpDs;
 }
 
+// Auto-fill Field alias from MetaColumn alias when empty
+function syncFieldAliases() {
+  for (const field of form.fields) {
+    if (field.alias || !field.metaColumnId) continue;
+    const col = findMetaColumn(field.metaColumnId);
+    if (col?.alias) field.alias = col.alias;
+  }
+}
+
+function findMetaColumn(metaColumnId: number): MetaColumn | undefined {
+  for (const cols of Object.values(tableColumns.value)) {
+    const col = cols.find(c => c.id === metaColumnId);
+    if (col) return col;
+  }
+  return undefined;
+}
+
 function onFieldColumnChange(field: { alias: string; metaColumnId: number }, metaColumnId: number) {
   // only auto-fill if alias is empty to preserve user customizations
   if (field.alias) return;
-  for (const cols of Object.values(tableColumns.value)) {
-    const col = cols.find(c => c.id === metaColumnId);
-    if (col?.alias) {
-      field.alias = col.alias;
-      return;
-    }
+  const col = findMetaColumn(metaColumnId);
+  if (col?.alias) {
+    field.alias = col.alias;
   }
 }
 
