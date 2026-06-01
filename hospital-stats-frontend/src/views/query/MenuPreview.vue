@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { useAuthStore } from '../../stores/auth';
 import { queryApi, type MenuItem } from '../../api/query';
+
+const authStore = useAuthStore();
 
 const router = useRouter();
 const menus = ref<MenuItem[]>([]);
@@ -38,7 +41,7 @@ onMounted(loadMenus);
     </div>
 
     <div style="background: white; padding: 24px; border-radius: 4px; min-height: 400px">
-      <el-empty v-if="menus.length === 0" description="暂无菜单，请先到菜单管理中创建" />
+      <el-empty v-if="menus.length === 0" :description="authStore.isAdmin ? '暂无菜单，请先到菜单管理中创建' : '暂无菜单，请联系管理员分配'" />
 
       <div v-else>
         <div v-for="menu in menus" :key="menu.id" style="margin-bottom: 20px">

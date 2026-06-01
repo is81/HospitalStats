@@ -15,18 +15,22 @@ public class DashboardController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly QueryExecutionService _executor;
+    private readonly ILogger<DashboardController> _logger;
 
-    public DashboardController(AppDbContext db, QueryExecutionService executor)
+    public DashboardController(AppDbContext db, QueryExecutionService executor, ILogger<DashboardController> logger)
     {
         _db = db;
         _executor = executor;
+        _logger = logger;
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<DashboardCardDto>>> GetDashboard()
+    public async Task<ActionResult<List<DashboardCardDto>>> GetDashboard(
+        [FromQuery] string? dateFrom = null,
+        [FromQuery] string? dateTo = null)
     {
         var cards = await _db.DashboardCards
-            .Include(d => d.QueryConfig)
+            .Include(d => d.QueryConfig).ThenInclude(q => q.Filters).ThenInclude(f => f.MetaColumn)
             .Where(d => d.IsEnabled)
             .OrderBy(d => d.SortOrder)
             .ToListAsync();
@@ -55,9 +59,25 @@ public class DashboardController : ControllerBase
             {
             try
             {
+                var filterDict = new Dictionary<string, string>();
+                var configFilters = card.QueryConfig?.Filters ?? new List<QueryFilter>();
+                var dateCols = new[] { "VISIT_DATE", "BILLING_DATE_TIME", "DISCHARGE_DATE_TIME" };
+                if (!string.IsNullOrEmpty(dateFrom))
+                {
+                    var gteFilter = configFilters.FirstOrDefault(f =>
+                        f.MetaColumn != null && dateCols.Contains(f.MetaColumn.ColumnName) && f.Operator == "GTE");
+                    if (gteFilter != null) filterDict[gteFilter.Id.ToString()] = dateFrom;
+                }
+                if (!string.IsNullOrEmpty(dateTo))
+                {
+                    var ltFilter = configFilters.FirstOrDefault(f =>
+                        f.MetaColumn != null && dateCols.Contains(f.MetaColumn.ColumnName) && f.Operator == "LT");
+                    if (ltFilter != null) filterDict[ltFilter.Id.ToString()] = dateTo;
+                }
+
                 var queryResult = await _executor.ExecuteAsync(
                     card.QueryConfigId.Value,
-                    new Dictionary<string, string>(),
+                    filterDict,
                     1, 100);
 
                 if (card.DisplayType == "number" && queryResult.Rows.Count > 0)
@@ -85,8 +105,9 @@ public class DashboardController : ControllerBase
                     };
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogWarning(ex, "Dashboard card {CardTitle} (config {ConfigId}) query failed", card.Title, card.QueryConfigId);
                 dto.Data = new { error = "查询失败" };
             }
             }

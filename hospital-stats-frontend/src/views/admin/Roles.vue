@@ -22,10 +22,20 @@ async function loadData() {
   }
 }
 
+function collectAllMenuIds(items: typeof menus.value): number[] {
+  const ids: number[] = [];
+  for (const m of items) {
+    ids.push(m.id);
+    if (m.children.length > 0) ids.push(...collectAllMenuIds(m.children));
+  }
+  return ids;
+}
+
 function openDialog(role?: RoleInfo) {
   if (role) {
     editingRole.value = role;
-    form.value = { name: role.name, description: role.description || '', menuIds: [...role.menuIds] };
+    const menuIds = role.menuIds.length > 0 ? [...role.menuIds] : collectAllMenuIds(menus.value);
+    form.value = { name: role.name, description: role.description || '', menuIds };
   } else {
     editingRole.value = null;
     form.value = { name: '', description: '', menuIds: [] };
@@ -35,12 +45,14 @@ function openDialog(role?: RoleInfo) {
 
 async function saveRole() {
   if (!form.value.name) { ElMessage.warning('请输入角色名'); return; }
+  const isAdmin = editingRole.value?.name === 'admin' || form.value.name === 'admin';
+  const payload = { ...form.value, menuIds: isAdmin ? [] : form.value.menuIds };
   try {
     if (editingRole.value) {
-      await adminApi.updateRole(editingRole.value.id, form.value);
+      await adminApi.updateRole(editingRole.value.id, payload);
       ElMessage.success('已更新');
     } else {
-      await adminApi.createRole(form.value);
+      await adminApi.createRole(payload);
       ElMessage.success('已创建');
     }
     dialogVisible.value = false;
@@ -87,10 +99,15 @@ onMounted(loadData);
       <el-table-column prop="description" label="描述" min-width="150" />
       <el-table-column label="菜单权限" min-width="300">
         <template #default="{ row }">
-          <el-tag v-for="mid in row.menuIds" :key="mid" size="small" style="margin:2px">
-            {{ getMenuName(mid) }}
-          </el-tag>
-          <span v-if="!row.menuIds.length" style="color:#c0c4cc">未分配</span>
+          <template v-if="row.name === 'admin'">
+            <el-tag type="success" size="small">全部菜单</el-tag>
+          </template>
+          <template v-else>
+            <el-tag v-for="mid in row.menuIds" :key="mid" size="small" style="margin:2px">
+              {{ getMenuName(mid) }}
+            </el-tag>
+            <span v-if="!row.menuIds.length" style="color:#c0c4cc">未分配</span>
+          </template>
         </template>
       </el-table-column>
       <el-table-column label="操作" width="160">

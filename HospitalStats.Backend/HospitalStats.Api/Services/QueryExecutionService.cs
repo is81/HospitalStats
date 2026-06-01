@@ -42,9 +42,11 @@ public class QueryExecutionService
     {
         var config = await _db.QueryConfigs
             .Include(q => q.MainTable).ThenInclude(t => t!.DataSource)
+            .Include(q => q.MainTable).ThenInclude(t => t!.Columns)
             .Include(q => q.Fields).ThenInclude(f => f.MetaColumn).ThenInclude(c => c!.MetaTable)
             .Include(q => q.Filters).ThenInclude(f => f.MetaColumn).ThenInclude(c => c!.MetaTable)
             .Include(q => q.Joins).ThenInclude(j => j.JoinTable)
+            .Include(q => q.Joins).ThenInclude(j => j.JoinTable!.Columns)
             .Include(q => q.Joins).ThenInclude(j => j.LeftMetaColumn).ThenInclude(c => c!.MetaTable)
             .Include(q => q.Joins).ThenInclude(j => j.RightMetaColumn).ThenInclude(c => c!.MetaTable)
             .FirstOrDefaultAsync(q => q.Id == configId);
@@ -153,9 +155,17 @@ public class QueryExecutionService
             foreach (var prop in (IDictionary<string, object?>)row)
             {
                 var val = prop.Value;
-                if (useHexEncoding && hexColumns.Contains(prop.Key) && val is string hexStr && !string.IsNullOrEmpty(hexStr))
+                if (useHexEncoding && hexColumns.Contains(prop.Key) && val is string hexStr1 && !string.IsNullOrEmpty(hexStr1))
                 {
-                    val = DecodeHexString(hexStr, charSetOverride);
+                    val = DecodeHexString(hexStr1, charSetOverride);
+                }
+                else if (useHexEncoding && val is string hexStr2 && !string.IsNullOrEmpty(hexStr2)
+                    && hexStr2.Length % 2 == 0 && hexStr2.All(c => (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F')))
+                {
+                    // Fallback: decode any hex-like string even if not in hexColumns (RawSql-only configs)
+                    var decoded = DecodeHexString(hexStr2, charSetOverride);
+                    if (decoded != hexStr2 && !string.IsNullOrEmpty(decoded))
+                        val = decoded;
                 }
                 else if (useHexEncoding && val is string strVal && strVal.Any(c => c > 127 || c == '?'))
                 {
@@ -656,7 +666,8 @@ var rawWhere = BuildOuterWhereForRawSql(config, userFilters, contextValues, para
         var aliases = ParseSelectAliases(rawSql);
         if (aliases.Count == 0) return rawSql;
 
-        // Build set of string column names from configured Fields
+        // Build set of string column names from configured Fields.
+        // If no Fields are configured (RawSql-only mode), derive from MainTable MetaColumns.
         var stringCols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var field in config.Fields)
         {
@@ -665,6 +676,27 @@ var rawWhere = BuildOuterWhereForRawSql(config, userFilters, contextValues, para
             stringCols.Add(col.ColumnName ?? "");
             if (!string.IsNullOrEmpty(col.Alias))
                 stringCols.Add(col.Alias);
+        }
+
+        // Fallback for RawSql-only configs: look up string columns from MainTable + JoinTables
+        if (stringCols.Count == 0 && config.MainTable != null)
+        {
+            var allMetaCols = new List<MetaColumn>();
+            if (config.MainTable.Columns != null && config.MainTable.Columns.Count > 0)
+                allMetaCols.AddRange(config.MainTable.Columns);
+            foreach (var join in config.Joins)
+            {
+                if (join.JoinTable?.Columns != null)
+                    allMetaCols.AddRange(join.JoinTable.Columns);
+            }
+
+            foreach (var col in allMetaCols)
+            {
+                if (!IsStringType(col.DataType)) continue;
+                stringCols.Add(col.ColumnName ?? "");
+                if (!string.IsNullOrEmpty(col.Alias))
+                    stringCols.Add(col.Alias);
+            }
         }
 
         var wrapped = new List<string>();
@@ -866,6 +898,7 @@ var rawWhere = BuildOuterWhereForRawSql(config, userFilters, contextValues, para
             }
 
             var (effectiveOp, effectiveVal) = ParseFilterValue(effectiveValue, filter.Operator);
+            if (string.IsNullOrEmpty(effectiveVal)) continue;
 
             // Qualify column with table alias from rawSql to avoid ORA-00918 ambiguity
             var colName = col.ColumnName ?? "COL";
@@ -940,6 +973,7 @@ var rawWhere = BuildOuterWhereForRawSql(config, userFilters, contextValues, para
             }
 
             var (effectiveOp, effectiveVal) = ParseFilterValue(effectiveValue, filter.Operator);
+            if (string.IsNullOrEmpty(effectiveVal)) continue;
 
             var colExpr = QualifyColumn(col);
             var paramName = $"p_f_{filter.Id}";

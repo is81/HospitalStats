@@ -773,6 +773,7 @@ onMounted(async () => {
           <el-form-item label="展示方式">
             <el-radio-group v-model="form.displayType">
               <el-radio-button value="table">表格</el-radio-button>
+              <el-radio-button value="number">数字</el-radio-button>
               <el-radio-button value="bar">柱状图</el-radio-button>
               <el-radio-button value="line">折线图</el-radio-button>
               <el-radio-button value="pie">饼图</el-radio-button>

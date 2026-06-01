@@ -15,12 +15,17 @@ export interface DashboardCardData {
   data?: { value?: string; rows?: unknown[]; columns?: string[]; total?: number; error?: string };
 }
 
+export interface DashboardFilter {
+  dateFrom?: string;
+  dateTo?: string;
+}
+
 export const dashboardApi = {
   getCards() {
     return api.get<DashboardCardData[]>('/dashboard/cards');
   },
-  getDashboard() {
-    return api.get<DashboardCardData[]>('/dashboard');
+  getDashboard(filters?: DashboardFilter) {
+    return api.get<DashboardCardData[]>('/dashboard', { params: filters });
   },
   createCard(data: {
     title: string; queryConfigId: number; displayType: string;

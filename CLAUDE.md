@@ -258,6 +258,17 @@ dotnet HospitalStats.Api.dll --urls http://0.0.0.0:5000
 }
 ```
 
+### config.db 手动备份
+
+最新备份：`F:\HospitalStats\backups\config_20260601_131801.db`
+
+恢复命令：
+```bash
+cp F:/HospitalStats/backups/config_20260601_131318.db F:/HospitalStats/HospitalStats.Backend/HospitalStats.Api/config.db
+```
+
+**注意**：`dotnet run` 实际读取 `bin/Debug/net8.0/config.db`，恢复后需重新 `dotnet run` 进行一次构建才能生效。或者直接拷贝到 `bin/Debug/net8.0/` 路径。
+
 ## 项目日志
 
 每次开发会话结束后，在 `F:\HospitalStats\logs\project-YYYY-MM-DD.md` 追加记录当日主要操作。格式：

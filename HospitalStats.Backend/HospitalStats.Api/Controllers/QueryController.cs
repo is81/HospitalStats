@@ -49,13 +49,16 @@ public class QueryController : ControllerBase
                 return new List<MenuDto>();
             }
 
-            var allowedMenuIds = await _db.RoleMenus
-                .Where(rm => roleIds.Contains(rm.RoleId))
-                .Select(rm => rm.MenuId)
-                .Distinct()
-                .ToListAsync();
+            // admin role always sees all menus
+            var isAdmin = await _db.Roles.AnyAsync(r => roleIds.Contains(r.Id) && r.Name == "admin");
+            if (!isAdmin)
+            {
+                var allowedMenuIds = await _db.RoleMenus
+                    .Where(rm => roleIds.Contains(rm.RoleId))
+                    .Select(rm => rm.MenuId)
+                    .Distinct()
+                    .ToListAsync();
 
-            // if roles have menu assignments, filter; otherwise allow all (admin)
             if (allowedMenuIds.Count > 0)
             {
                 var allowedSet = new HashSet<int>(allowedMenuIds);
@@ -74,6 +77,12 @@ public class QueryController : ControllerBase
                     }
                 }
                 all = all.Where(m => allowedSet.Contains(m.Id)).ToList();
+            }
+            else
+            {
+                // non-admin with no menu assignments → see nothing
+                return new List<MenuDto>();
+            }
             }
         }
 
@@ -102,15 +111,6 @@ public class QueryController : ControllerBase
             IsEnabled = req.IsEnabled
         };
         _db.Menus.Add(entity);
-        await _db.SaveChangesAsync();
-
-        // Auto-assign new menu to all existing roles so admins don't need to
-        // manually update role permissions for each new menu.
-        var roleIds = await _db.Roles.Select(r => r.Id).ToListAsync();
-        foreach (var roleId in roleIds)
-        {
-            _db.RoleMenus.Add(new RoleMenu { RoleId = roleId, MenuId = entity.Id });
-        }
         await _db.SaveChangesAsync();
 
         return CreatedAtAction(nameof(GetMenu), new { id = entity.Id }, ToMenuDto(entity));

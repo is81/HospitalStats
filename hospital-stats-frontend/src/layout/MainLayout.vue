@@ -63,13 +63,10 @@ async function handleChangePassword() {
         active-text-color="#2dd4bf"
         router
       >
-        <!-- 仪表盘功能暂缓 -->
-        <!--
         <el-menu-item index="/dashboard">
           <el-icon><Odometer /></el-icon>
           <span>仪表盘</span>
         </el-menu-item>
-        -->
         <el-menu-item index="/datasources" v-if="authStore.isAdmin">
           <el-icon><Monitor /></el-icon>
           <span>数据源管理</span>
@@ -96,8 +93,7 @@ async function handleChangePassword() {
             <el-icon><Setting /></el-icon>
             <span>系统管理</span>
           </template>
-          <!-- 仪表盘配置暂缓 -->
-          <!-- <el-menu-item index="/dashboard/config">仪表盘配置</el-menu-item> -->
+          <el-menu-item index="/dashboard/config">仪表盘配置</el-menu-item>
           <el-menu-item index="/admin/users">用户管理</el-menu-item>
           <el-menu-item index="/admin/roles">角色管理</el-menu-item>
         </el-sub-menu>
@@ -108,7 +104,7 @@ async function handleChangePassword() {
       <el-header class="app-header">
         <span class="header-title">{{ route.meta.title || '' }}</span>
         <div class="header-right">
-          <span class="header-user" @click="openProfile">{{ authStore.displayName }}</span>
+          <span class="header-user" @click="openProfile">{{ authStore.displayName || '用户' }}</span>
           <el-button text @click="handleLogout">退出</el-button>
         </div>
       </el-header>

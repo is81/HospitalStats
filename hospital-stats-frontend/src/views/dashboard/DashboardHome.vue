@@ -1,33 +1,90 @@
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue';
-import { dashboardApi, type DashboardCardData } from '../../api/dashboard';
+import { ref, onMounted, onUnmounted, nextTick } from 'vue';
+import { ElMessageBox } from 'element-plus';
+import { dashboardApi, type DashboardCardData, type DashboardFilter } from '../../api/dashboard';
 import * as echarts from 'echarts';
+
+function defaultDateFrom() {
+  const d = new Date();
+  d.setDate(d.getDate() - 30);
+  return d.toISOString().slice(0, 10);
+}
+function defaultDateTo() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 const cards = ref<DashboardCardData[]>([]);
 const loading = ref(false);
+const filters = ref<DashboardFilter>({
+  dateFrom: defaultDateFrom(),
+  dateTo: defaultDateTo(),
+});
 
-// 每个图表的 ECharts 实例，key 为卡片 ID
 const chartInstances: Record<number, echarts.ECharts> = {};
-
-// 图表容器 ref 模板引用
 const chartRefs = ref<Record<number, HTMLDivElement | null>>({});
 
 function setChartRef(id: number) {
   return (el: any) => {
-    chartRefs.value[id] = el;
+    if (el) chartRefs.value[id] = el;
   };
 }
 
 async function loadDashboard() {
   loading.value = true;
   try {
-    const res = await dashboardApi.getDashboard();
+    const params: DashboardFilter = {};
+    if (filters.value.dateFrom) params.dateFrom = filters.value.dateFrom;
+    if (filters.value.dateTo) params.dateTo = filters.value.dateTo;
+    const res = await dashboardApi.getDashboard(Object.keys(params).length ? params : undefined);
     cards.value = res.data;
     await nextTick();
     renderCharts();
   } finally {
     loading.value = false;
   }
+}
+
+function daysBetween(from: string, to: string) {
+  return (new Date(to).getTime() - new Date(from).getTime()) / 86400000;
+}
+
+async function maybeLoadDashboard() {
+  const from = filters.value.dateFrom;
+  const to = filters.value.dateTo;
+  if (from && to && daysBetween(from, to) >= 180) {
+    (document.activeElement as HTMLElement)?.blur();
+    try {
+      await ElMessageBox.confirm('日期范围超过6个月，查询可能较慢，确定执行？', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' });
+    } catch { return; }
+  }
+  loadDashboard();
+}
+
+function onFilterChange() {
+  if (!filters.value.dateFrom || !filters.value.dateTo) {
+    filters.value.dateFrom = defaultDateFrom();
+    filters.value.dateTo = defaultDateTo();
+  }
+  maybeLoadDashboard();
+}
+
+function quickDate(months: number) {
+  const d = new Date();
+  d.setDate(d.getDate() - months * 30);
+  filters.value = { dateFrom: d.toISOString().slice(0, 10), dateTo: defaultDateTo() };
+  maybeLoadDashboard();
+}
+
+function activePreset() {
+  const from = filters.value.dateFrom;
+  const to = filters.value.dateTo;
+  if (!from || !to) return 0;
+  for (const m of [1, 2, 3]) {
+    const d = new Date();
+    d.setDate(d.getDate() - m * 30);
+    if (d.toISOString().slice(0, 10) === from && defaultDateTo() === to) return m;
+  }
+  return 0;
 }
 
 function renderCharts() {
@@ -43,10 +100,7 @@ function renderChart(card: DashboardCardData, type: string) {
   const el = chartRefs.value[card.id];
   if (!el || !card.data?.rows || !card.data?.columns) return;
 
-  // 销毁旧实例（如果存在）
-  if (chartInstances[card.id]) {
-    chartInstances[card.id]!.dispose();
-  }
+  if (chartInstances[card.id]) chartInstances[card.id]!.dispose();
 
   const instance = echarts.init(el);
   chartInstances[card.id] = instance;
@@ -76,9 +130,9 @@ function renderChart(card: DashboardCardData, type: string) {
       }],
     });
   } else {
-    // bar / line
     instance.setOption({
       tooltip: { trigger: 'axis' },
+      grid: { left: 10, right: 20, top: 10, bottom: 30, containLabel: true },
       xAxis: {
         type: 'category',
         data: rows.map(row => String(row[cols[0]] ?? '')),
@@ -94,6 +148,18 @@ function renderChart(card: DashboardCardData, type: string) {
   }
 }
 
+function handleResize() {
+  for (const inst of Object.values(chartInstances)) {
+    try { inst.resize(); } catch { /* disposed */ }
+  }
+}
+
+let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+function onWindowResize() {
+  if (resizeTimer) clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(handleResize, 150);
+}
+
 function getIcon(icon: string | null) {
   const map: Record<string, string> = {
     money: '💰', people: '👥', hospital: '🏥', medicine: '💊',
@@ -102,14 +168,51 @@ function getIcon(icon: string | null) {
   return map[icon || ''] || '📈';
 }
 
-onMounted(loadDashboard);
+onMounted(() => {
+  loadDashboard();
+  window.addEventListener('resize', onWindowResize);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', onWindowResize);
+  if (resizeTimer) clearTimeout(resizeTimer);
+  for (const inst of Object.values(chartInstances)) {
+    try { inst.dispose(); } catch { /* already disposed */ }
+  }
+});
 </script>
 
 <template>
   <div>
-    <div style="margin-bottom: 16px; display: flex; gap: 12px; align-items: center">
-      <span style="font-size: 18px; font-weight: 600">仪表盘</span>
-      <el-button size="small" @click="loadDashboard" :loading="loading">刷新</el-button>
+    <div style="margin-bottom: 12px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap">
+      <span style="font-size: 18px; font-weight: 600; margin-right: 16px">仪表盘</span>
+      <span style="display: inline-flex; gap: 4px; align-items: center">
+        <el-date-picker
+          v-model="filters.dateFrom"
+          type="date"
+          placeholder="开始日期"
+          value-format="YYYY-MM-DD"
+          size="small"
+          style="width: 140px"
+          @change="onFilterChange"
+        />
+        <span style="color: #909399">—</span>
+        <el-date-picker
+          v-model="filters.dateTo"
+          type="date"
+          placeholder="结束日期"
+          value-format="YYYY-MM-DD"
+          size="small"
+          style="width: 140px"
+          @change="onFilterChange"
+        />
+      </span>
+      <el-button-group size="small">
+        <el-button :type="activePreset() === 1 ? 'primary' : 'default'" @click="quickDate(1)">近1月</el-button>
+        <el-button :type="activePreset() === 2 ? 'primary' : 'default'" @click="quickDate(2)">近2月</el-button>
+        <el-button :type="activePreset() === 3 ? 'primary' : 'default'" @click="quickDate(3)">近3月</el-button>
+      </el-button-group>
+      <el-button size="small" @click="loadDashboard" :loading="loading" type="primary">刷新</el-button>
     </div>
 
     <div class="dash-grid" v-loading="loading">
@@ -126,12 +229,16 @@ onMounted(loadDashboard);
               <span v-if="card.unit" class="card-unit">{{ card.unit }}</span>
             </div>
             <div v-else-if="card.displayType === 'bar' || card.displayType === 'line' || card.displayType === 'pie'"
-              class="chart-container" style="height: 300px">
-              <div :ref="setChartRef(card.id)" style="width:100%;height:300px" />
+              class="chart-container">
+              <div :ref="setChartRef(card.id)" class="chart-inner" />
             </div>
-            <div v-else class="card-subtitle">
-              {{ card.data?.total ?? '-' }} 条记录
+            <div v-else-if="card.data?.rows?.length" class="card-table">
+              <table>
+                <thead><tr><th v-for="c in card.data.columns" :key="c">{{ c }}</th></tr></thead>
+                <tbody><tr v-for="(r,i) in (card.data.rows as Record<string,any>[]).slice(0,8)" :key="i"><td v-for="c in card.data.columns" :key="c">{{ (r as Record<string,any>)[c] }}</td></tr></tbody>
+              </table>
             </div>
+            <div v-else class="card-subtitle">{{ card.data?.total ?? '-' }} 条记录</div>
           </div>
         </div>
       </div>
@@ -165,4 +272,10 @@ onMounted(loadDashboard);
 .card-unit { font-size: 14px; color: #909399; margin-left: 4px; }
 .card-subtitle { font-size: 16px; color: #606266; }
 .card-error { color: #f56c6c; font-size: 13px; }
+.chart-container { position: relative; width: 100%; min-height: 260px; }
+.chart-inner { position: absolute; inset: 0; }
+.card-table { overflow: auto; }
+.card-table table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.card-table th { background: #f5f7fa; padding: 6px 8px; text-align: left; border-bottom: 1px solid #ebeef5; white-space: nowrap; }
+.card-table td { padding: 5px 8px; border-bottom: 1px solid #ebeef5; white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
 </style>

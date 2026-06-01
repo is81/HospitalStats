@@ -66,19 +66,18 @@ const routes: RouteRecordRaw[] = [
         component: () => import('../views/query/MenuPreview.vue'),
         meta: { title: '数据查询' },
       },
-      // 仪表盘功能暂缓
-      // {
-      //   path: 'dashboard',
-      //   name: 'DashboardHome',
-      //   component: () => import('../views/dashboard/DashboardHome.vue'),
-      //   meta: { title: '仪表盘' },
-      // },
-      // {
-      //   path: 'dashboard/config',
-      //   name: 'DashboardConfig',
-      //   component: () => import('../views/dashboard/DashboardConfig.vue'),
-      //   meta: { title: '仪表盘配置', admin: true },
-      // },
+      {
+        path: 'dashboard',
+        name: 'DashboardHome',
+        component: () => import('../views/dashboard/DashboardHome.vue'),
+        meta: { title: '仪表盘' },
+      },
+      {
+        path: 'dashboard/config',
+        name: 'DashboardConfig',
+        component: () => import('../views/dashboard/DashboardConfig.vue'),
+        meta: { title: '仪表盘配置', admin: true },
+      },
       {
         path: 'admin/users',
         name: 'AdminUsers',
