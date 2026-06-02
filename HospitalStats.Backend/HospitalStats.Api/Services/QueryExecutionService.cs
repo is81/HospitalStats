@@ -349,7 +349,17 @@ public class QueryExecutionService
     internal static void RegisterParamValues(Dictionary<string, string> paramValues, string key,
         string op, string value, Func<string, string>? encode = null)
     {
-        if (op is "BETWEEN" or "NOT BETWEEN")
+        if (op is "IN" or "NOT IN")
+        {
+            var parts = value.Split(',', StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 0; i < parts.Length; i++)
+            {
+                var p = parts[i].Trim().Trim('\'', '"', '(', ')');
+                if (string.IsNullOrEmpty(p)) continue;
+                paramValues[key + "_" + i] = encode != null ? encode(p) : p;
+            }
+        }
+        else if (op is "BETWEEN" or "NOT BETWEEN")
         {
             var parts = value.Split(',', 2);
             var from = parts[0].Trim();
@@ -924,7 +934,9 @@ var rawWhere = BuildOuterWhereForRawSql(config, userFilters, contextValues, para
                 var hexValue = EncodeNonAsciiValue(effectiveVal, effectiveOp, charSetOverride);
                 _logger.LogInformation("Hex filter {FilterId}: original='{Orig}' op='{Op}' hex='{Hex}' col={Col}",
                     filter.Id, effectiveVal, effectiveOp, hexValue, colExpr);
-                parts.Add(OperatorToSql(colExpr, effectiveOp, paramName, isDate));
+                parts.Add(effectiveOp is "IN" or "NOT IN"
+                    ? BuildInClause(colExpr, effectiveOp, paramName, effectiveVal, isDate)
+                    : OperatorToSql(colExpr, effectiveOp, paramName, isDate));
                 // Hex-encoded value must always overwrite — the original Chinese
                 // text would get garbled through US7ASCII parameter transport.
                 RegisterParamValues(paramValues, filter.Id.ToString(), effectiveOp, effectiveVal,
@@ -933,7 +945,9 @@ var rawWhere = BuildOuterWhereForRawSql(config, userFilters, contextValues, para
             else
             {
                 var colExpr = qualified;
-                parts.Add(OperatorToSql(colExpr, effectiveOp, paramName, isDate));
+                parts.Add(effectiveOp is "IN" or "NOT IN"
+                    ? BuildInClause(colExpr, effectiveOp, paramName, effectiveVal, isDate)
+                    : OperatorToSql(colExpr, effectiveOp, paramName, isDate));
                 RegisterParamValues(paramValues, filter.Id.ToString(), effectiveOp, effectiveVal, null);
             }
         }
@@ -1163,6 +1177,27 @@ var rawWhere = BuildOuterWhereForRawSql(config, userFilters, contextValues, para
                 : $"{col} NOT BETWEEN :{param}_from AND :{param}_to",
             _ => $"{col} = {val}"
         };
+    }
+
+    /// <summary>Build IN/NOT IN clause with individual bind parameters for each value.</summary>
+    internal static string BuildInClause(string col, string op, string paramPrefix, string value, bool isDate)
+    {
+        var parts = value.Split(',', StringSplitOptions.RemoveEmptyEntries);
+        var cleanParts = new List<string>(parts.Length);
+        for (int i = 0; i < parts.Length; i++)
+        {
+            var p = parts[i].Trim().Trim('\'', '"', '(', ')');
+            if (string.IsNullOrEmpty(p)) continue;
+            cleanParts.Add(p);
+        }
+        var args = new List<string>(cleanParts.Count);
+        for (int i = 0; i < cleanParts.Count; i++)
+        {
+            var p = paramPrefix + "_" + i;
+            args.Add(isDate ? $"TO_DATE(:{p}, 'YYYY-MM-DD')" : $":{p}");
+        }
+        var list = string.Join(", ", args);
+        return op == "NOT IN" ? $"{col} NOT IN ({list})" : $"{col} IN ({list})";
     }
 
     internal static DynamicParameters MergeParams(
