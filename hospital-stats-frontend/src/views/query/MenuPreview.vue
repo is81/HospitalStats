@@ -47,7 +47,8 @@ onMounted(loadMenus);
         <div v-for="menu in menus" :key="menu.id" style="margin-bottom: 20px">
           <!-- Root menu -->
           <div style="font-size: 15px; font-weight: 600; color: #303133; padding: 8px 0;
-            border-bottom: 1px solid #ebeef5; margin-bottom: 12px">
+            border-bottom: 1px solid #ebeef5; margin-bottom: 12px; display: flex; align-items: center; gap: 6px">
+            <el-icon v-if="menu.icon" size="16"><component :is="menu.icon" /></el-icon>
             {{ menu.name }}
           </div>
 
@@ -58,7 +59,8 @@ onMounted(loadMenus);
               <div
                 :class="{ 'menu-card': true, 'clickable': hasQueryConfig(child) }"
                 @click="handleMenuClick(child)">
-                <div style="font-size: 14px; font-weight: 500">
+                <div style="font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 4px">
+                  <el-icon v-if="child.icon" size="14"><component :is="child.icon" /></el-icon>
                   {{ child.name }}
                 </div>
                 <div style="font-size: 12px; color: #909399; margin-top: 4px">

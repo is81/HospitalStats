@@ -11,7 +11,7 @@ const dialogVisible = ref(false);
 const editingCard = ref<DashboardCardData | null>(null);
 const form = ref({
   title: '', queryConfigId: 0, displayType: 'number',
-  icon: '', color: '#409EFF', unit: '', sortOrder: 0, width: 6, isEnabled: true,
+  icon: '', color: '#00603D', unit: '', sortOrder: 0, width: 6, isEnabled: true,
 });
 
 async function loadData() {
@@ -30,12 +30,12 @@ function openDialog(card?: DashboardCardData) {
     editingCard.value = card;
     form.value = {
       title: card.title, queryConfigId: card.queryConfigId, displayType: card.displayType,
-      icon: card.icon || '', color: card.color || '#409EFF', unit: card.unit || '',
+      icon: card.icon || '', color: card.color || '#00603D', unit: card.unit || '',
       sortOrder: card.sortOrder, width: card.width, isEnabled: card.isEnabled,
     };
   } else {
     editingCard.value = null;
-    form.value = { title: '', queryConfigId: 0, displayType: 'number', icon: '', color: '#409EFF', unit: '', sortOrder: cards.value.length, width: 6, isEnabled: true };
+    form.value = { title: '', queryConfigId: 0, displayType: 'number', icon: '', color: '#00603D', unit: '', sortOrder: cards.value.length, width: 6, isEnabled: true };
   }
   dialogVisible.value = true;
 }
@@ -66,6 +66,17 @@ async function deleteCard(id: number) {
     await loadData();
   } catch { /* cancelled */ }
 }
+
+const iconOptions = [
+  { value: 'money', label: '💰 金额' },
+  { value: 'people', label: '👥 人员' },
+  { value: 'hospital', label: '🏥 医院' },
+  { value: 'medicine', label: '💊 药品' },
+  { value: 'chart', label: '📊 图表' },
+  { value: 'calendar', label: '📅 日历' },
+  { value: 'doc', label: '📋 文档' },
+];
+const unitOptions = ['人次', '元', '张', '%', '例', '天', '次', '件'];
 
 onMounted(loadData);
 </script>
@@ -112,13 +123,18 @@ onMounted(loadData);
           </el-radio-group>
         </el-form-item>
         <el-form-item label="图标">
-          <el-input v-model="form.icon" placeholder="money/people/chart" />
+          <el-select v-model="form.icon" placeholder="选择图标" clearable style="width:100%">
+            <el-option v-for="ic in iconOptions" :key="ic.value" :label="ic.label" :value="ic.value" />
+          </el-select>
         </el-form-item>
         <el-form-item label="颜色">
           <el-color-picker v-model="form.color" />
         </el-form-item>
         <el-form-item label="单位">
-          <el-input v-model="form.unit" placeholder="如：人次、元" />
+          <el-select v-model="form.unit" placeholder="选择单位" clearable filterable
+            style="width:100%">
+            <el-option v-for="u in unitOptions" :key="u" :label="u" :value="u" />
+          </el-select>
         </el-form-item>
         <el-form-item label="宽度">
           <el-select v-model="form.width">

@@ -1,19 +1,23 @@
 /* ===== HospitalStats Clinical Precision Theme ===== */
 
 :root {
-  /* --- Primary: Teal (replaces default #409EFF blue) --- */
-  --el-color-primary: #0d9488;
-  --el-color-primary-light-3: #5eead4;
-  --el-color-primary-light-5: #99f6e4;
-  --el-color-primary-light-7: #ccfbf1;
-  --el-color-primary-light-8: #e6fffa;
-  --el-color-primary-light-9: #f0fdfa;
-  --el-color-primary-dark-2: #0f766e;
+  /* --- Primary: Deep Green #00603D --- */
+  --el-color-primary: #00603D;
+  --el-color-primary-light-3: #1a7d54;
+  --el-color-primary-light-5: #4daa7d;
+  --el-color-primary-light-7: #85c9a9;
+  --el-color-primary-light-8: #b8e0ce;
+  --el-color-primary-light-9: #edf8f2;
+  --el-color-primary-dark-2: #00452c;
+
+  /* --- Accent: Chinese Red #E4141C --- */
+  --el-color-accent: #E4141C;
+  --el-color-accent-light: #fce4e5;
 
   /* --- Functional colors --- */
-  --el-color-success: #10b981;
+  --el-color-success: #00603D;
   --el-color-warning: #f59e0b;
-  --el-color-danger: #ef4444;
+  --el-color-danger: #E4141C;
   --el-color-info: #64748b;
 
   /* --- Typography --- */
@@ -88,9 +92,9 @@ body {
 
 /* --- Tag overrides --- */
 .el-tag--success {
-  --el-tag-bg-color: #ecfdf5;
-  --el-tag-border-color: #a7f3d0;
-  --el-tag-text-color: #059669;
+  --el-tag-bg-color: #edf8f2;
+  --el-tag-border-color: #b8e0ce;
+  --el-tag-text-color: #00603D;
 }
 
 /* --- Pagination --- */

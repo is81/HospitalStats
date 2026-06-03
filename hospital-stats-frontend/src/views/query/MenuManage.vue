@@ -99,11 +99,14 @@ onMounted(() => {
 
     <!-- Tree Table -->
     <el-table :data="menus" border stripe row-key="id" default-expand-all
+      :row-class-name="({ row }: any) => row.parentId == null ? 'root-row' : ''"
       v-if="menus.length > 0">
       <el-table-column prop="name" label="菜单名称" min-width="200">
         <template #default="{ row }">
-          <span>
-            {{ row.icon ? '📊' : '📁' }} {{ row.name }}
+          <span style="display: inline-flex; align-items: center; gap: 6px; vertical-align: middle">
+            <el-icon v-if="row.icon" size="16"><component :is="row.icon" /></el-icon>
+            <el-icon v-else size="16"><Folder /></el-icon>
+            {{ row.name }}
           </span>
         </template>
       </el-table-column>
@@ -142,7 +145,12 @@ onMounted(() => {
         </el-form-item>
         <el-form-item label="图标">
           <el-select v-model="form.icon" placeholder="选择图标" clearable style="width: 100%">
-            <el-option v-for="icon in icons" :key="icon" :label="icon" :value="icon" />
+            <el-option v-for="icon in icons" :key="icon" :label="icon" :value="icon">
+              <el-icon style="margin-right: 6px; vertical-align: middle">
+                <component :is="icon" />
+              </el-icon>
+              <span>{{ icon }}</span>
+            </el-option>
           </el-select>
         </el-form-item>
         <el-form-item label="绑定查询">
@@ -165,4 +173,10 @@ onMounted(() => {
     </el-dialog>
   </div>
 </template>
+
+<style scoped>
+:deep(.root-row) {
+  background-color: #edf8f2;
+}
+</style>
 

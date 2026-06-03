@@ -217,7 +217,7 @@ onUnmounted(() => {
 
     <div class="dash-grid" v-loading="loading">
       <div v-for="card in cards" :key="card.id" :style="{ gridColumn: `span ${card.width}` }">
-        <div class="dash-card" :style="{ borderTopColor: card.color || '#409EFF' }">
+        <div class="dash-card" :style="{ borderTopColor: card.color || '#00603D' }">
           <div class="card-header">
             <span class="card-icon">{{ getIcon(card.icon) }}</span>
             <span class="card-title">{{ card.title }}</span>
@@ -260,7 +260,7 @@ onUnmounted(() => {
   background: white;
   border-radius: 6px;
   padding: 20px;
-  border-top: 3px solid #409EFF;
+  border-top: 3px solid #00603D;
   transition: box-shadow 0.2s;
 }
 .dash-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.08); }

@@ -54,11 +54,11 @@ const sqlResult = ref<SqlParseResponse | null>(null);
 
 // operator options
 const operators = [
-  { value: 'EQ', label: '等于' },
-  { value: 'NE', label: '不等于' },
-  { value: 'GT', label: '大于' },
+  { value: 'EQ', label: '=' },
+  { value: 'NE', label: '≠' },
+  { value: 'GT', label: '＞' },
   { value: 'GTE', label: '≥' },
-  { value: 'LT', label: '小于' },
+  { value: 'LT', label: '＜' },
   { value: 'LTE', label: '≤' },
   { value: 'LIKE', label: '包含' },
   { value: 'NOT LIKE', label: '排除' },
@@ -583,7 +583,7 @@ onMounted(async () => {
                 <el-tag v-for="(c, i) in sqlResult.columns" :key="i"
                   :type="c.matched ? 'success' : 'warning'" size="small">
                   {{ c.alias || c.expression || '(未知)' }}
-                  <span v-if="c.aggregateFunc" style="color: #409eff">[{{ c.aggregateFunc }}]</span>
+                  <span v-if="c.aggregateFunc" style="color: #00603D">[{{ c.aggregateFunc }}]</span>
                 </el-tag>
               </div>
             </div>
@@ -594,7 +594,7 @@ onMounted(async () => {
                 <el-tag v-for="(f, i) in sqlResult.filters" :key="i"
                   :type="f.matched ? '' : 'warning'" size="small">
                   {{ f.label }} {{ f.operator }}
-                  <span v-if="f.defaultValue" style="color: #409eff">[{{ f.defaultValue }}]</span>
+                  <span v-if="f.defaultValue" style="color: #00603D">[{{ f.defaultValue }}]</span>
                 </el-tag>
               </div>
             </div>

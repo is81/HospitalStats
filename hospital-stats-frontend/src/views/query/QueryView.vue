@@ -141,11 +141,11 @@ async function doExport() {
 }
 
 const operators = [
-  { value: 'EQ', label: '等于' },
-  { value: 'NE', label: '不等于' },
-  { value: 'GT', label: '大于' },
+  { value: 'EQ', label: '=' },
+  { value: 'NE', label: '≠' },
+  { value: 'GT', label: '＞' },
   { value: 'GTE', label: '≥' },
-  { value: 'LT', label: '小于' },
+  { value: 'LT', label: '＜' },
   { value: 'LTE', label: '≤' },
   { value: 'LIKE', label: '包含' },
   { value: 'NOT LIKE', label: '排除' },

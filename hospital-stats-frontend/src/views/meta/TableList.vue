@@ -289,5 +289,5 @@ onMounted(() => {
 
 <style scoped>
 .domain-item:hover { background: #f5f7fa; }
-.domain-item.active { background: #ecf5ff; color: #409EFF; font-weight: bold; }
+.domain-item.active { background: #edf8f2; color: #00603D; font-weight: bold; }
 </style>

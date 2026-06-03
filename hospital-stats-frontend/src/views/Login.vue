@@ -59,30 +59,36 @@ async function handleLogin() {
       </div>
     </div>
   </div>
-  <el-dialog v-model="showVersion" title="版本信息" width="520px" :close-on-click-modal="true">
+  <el-dialog v-model="showVersion" title="版本信息" width="500px" :close-on-click-modal="true">
     <div class="version-content">
-      <h3>v2.0 — 2026-06</h3>
-      <ul>
-        <li>UNION 复杂查询全链路支持（导入→分支筛选注入→中文别名安全化→hex编码）</li>
-        <li>Oracle US7ASCII 字符集完整适配（列数据/标识符/行内字面量三层防护）</li>
-        <li>筛选条件按 UNION 分支独立注入</li>
-        <li>仪表盘日期筛选栏 + 操作符智能匹配</li>
-        <li>基于角色的菜单权限控制</li>
-        <li>IN 多值参数独立绑定</li>
-        <li>浏览器兼容（IE 2018+ polyfills）</li>
-      </ul>
-      <h3 style="margin-top:16px">v1.0 — 2026-05</h3>
-      <ul>
-        <li>基础查询平台（Vue 3 + .NET 8 + Oracle 10g/11g）</li>
-        <li>JWT 认证 + BCrypt 密码哈希</li>
-        <li>数据源管理（AES-CBC 加密连接串）</li>
-        <li>元数据扫描（Oracle Schema 自动发现）</li>
-        <li>仪表盘 8 卡片 + ECharts 图表</li>
-        <li>查询结果 Excel 导出</li>
-        <li>SQLite 配置库自动备份</li>
-        <li>12 种筛选操作符 + RawSql 导入解析</li>
-        <li>上下文筛选器（DeptName / UserId）</li>
-      </ul>
+      <div class="version-block">
+        <div class="version-badge">v2.0</div>
+        <div class="version-date">2026-06</div>
+        <ul>
+          <li>UNION 复杂查询全链路（导入→分支筛选注入→中文别名安全化→hex编码）</li>
+          <li>Oracle US7ASCII 字符集完整适配（列数据/标识符/行内字面量三层防护）</li>
+          <li>筛选条件按 UNION 分支独立注入</li>
+          <li>仪表盘日期筛选栏 + 操作符智能匹配</li>
+          <li>基于角色的菜单权限控制</li>
+          <li>IN 多值参数独立绑定</li>
+          <li>浏览器兼容（IE 2018+ polyfills）</li>
+        </ul>
+      </div>
+      <div class="version-block">
+        <div class="version-badge v1">v1.0</div>
+        <div class="version-date">2026-05</div>
+        <ul>
+          <li>基础查询平台（Vue 3 + .NET 8 + Oracle 10g/11g）</li>
+          <li>JWT 认证 + BCrypt 密码哈希</li>
+          <li>数据源管理（AES-CBC 加密连接串）</li>
+          <li>元数据扫描（Oracle Schema 自动发现）</li>
+          <li>仪表盘 8 卡片 + ECharts 图表</li>
+          <li>查询结果 Excel 导出</li>
+          <li>SQLite 配置库自动备份</li>
+          <li>12 种筛选操作符 + RawSql 导入解析</li>
+          <li>上下文筛选器（DeptName / UserId）</li>
+        </ul>
+      </div>
     </div>
   </el-dialog>
 </template>
@@ -119,20 +125,21 @@ async function handleLogin() {
 }
 .login-header { display: flex; align-items: center; justify-content: center; gap: 18px; margin-bottom: 20px; }
 .login-header .logo-img { width: 64px; height: 64px; border-radius: 12px; flex-shrink: 0; }
-.login-title { text-align: justify; text-align-last: justify; }
 .login-title h2 {
-  margin: 0 0 4px 0;
+  margin: 0 0 2px 0;
   color: #0f172a;
   font-size: 22px;
   font-weight: 700;
   letter-spacing: 0.04em;
+  text-align: center;
 }
 .subtitle {
   color: #94a3b8;
-  font-size: 13px;
+  font-size: 11px;
   margin: 0;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  text-align: center;
 }
 .login-footer {
   text-align: center;
@@ -143,7 +150,16 @@ async function handleLogin() {
 }
 .version-link { color: #94a3b8; text-decoration: none; }
 .version-link:hover { color: #2dd4bf; }
-.version-content h3 { margin: 4px 0 8px; font-size: 15px; color: #0d9488; }
-.version-content ul { padding-left: 18px; margin: 4px 0; }
-.version-content li { line-height: 1.8; font-size: 13px; color: #475569; }
+.version-content { display: flex; flex-direction: column; gap: 24px; padding: 8px 16px 4px; }
+.version-block { position: relative; padding-left: 20px; border-left: 2px solid #e2e8f0; }
+.version-badge {
+  display: inline-block; padding: 2px 12px; border-radius: 12px;
+  background: linear-gradient(135deg, #00603D, #1a7d54); color: #fff;
+  font-size: 13px; font-weight: 700; letter-spacing: 0.04em;
+}
+.version-badge.v1 { background: linear-gradient(135deg, #94a3b8, #64748b); }
+.version-date { display: inline-block; margin-left: 8px; font-size: 12px; color: #94a3b8; }
+.version-block ul { padding-left: 16px; margin: 10px 0 0; }
+.version-block li { line-height: 2; font-size: 13px; color: #475569; }
+.version-block li::marker { color: #00603D; }
 </style>

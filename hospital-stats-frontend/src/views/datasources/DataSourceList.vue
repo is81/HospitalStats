@@ -40,7 +40,11 @@ function openDialog(item?: DataSourceItem) {
     };
   } else {
     editingItem.value = null;
-    form.value = { name: '', dbType: 'Oracle', connectionString: '', schema: '', charSetOverride: '' };
+    form.value = {
+      name: '', dbType: 'Oracle',
+      connectionString: 'User Id=;Password=;Data Source=localhost:1521/orcl',
+      schema: '', charSetOverride: ''
+    };
   }
   dialogVisible.value = true;
 }
@@ -143,8 +147,12 @@ onMounted(loadList);
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="updatedAt" label="更新时间" width="170" />
-      <el-table-column label="操作" width="260" fixed="right">
+      <el-table-column label="更新时间" width="120">
+        <template #default="{ row }">
+          {{ row.updatedAt?.slice(0, 10) }}
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" width="260">
         <template #default="{ row }">
           <el-button size="small" @click="handleTestSaved(row.id)"
             :loading="testing">测试</el-button>
