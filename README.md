@@ -45,9 +45,8 @@ HospitalStats/
 │   │   ├── Models/                # 实体模型
 │   │   ├── DTOs/                  # 请求/响应 DTO
 │   │   ├── Data/                  # EF Core DbContext
-│   │   └── Middleware/            # 异常/审计/授权中间件
-│   ├── HospitalStats.Api.Tests/   # xUnit 测试
-│   └── GenerateLicense/           # 激活码生成工具
+│   │   └── Middleware/            # 异常/审计中间件
+│   └── HospitalStats.Api.Tests/   # xUnit 测试
 ├── docs/                          # 文档
 ├── deploy/publish/                # 发布输出
 └── CLAUDE.md                      # AI 辅助开发指南
@@ -86,7 +85,7 @@ export Encryption__Key=<16位随机字符串>
 cd deploy/publish && dotnet HospitalStats.Api.dll --urls http://0.0.0.0:5000
 ```
 
-默认管理员：`admin` / `admin123`（首次登录后务必修改）
+默认管理员账号 `admin`，密码为随机生成，首次启动时打印在控制台日志中。登录后务必修改。
 
 ### 注意事项
 

@@ -45,9 +45,8 @@ HospitalStats/
 │   │   ├── Models/                # Entity models
 │   │   ├── DTOs/                  # Request/response DTOs
 │   │   ├── Data/                  # EF Core DbContext
-│   │   └── Middleware/            # Exception / audit / license
-│   ├── HospitalStats.Api.Tests/   # xUnit test suite
-│   └── GenerateLicense/           # License key generator
+│   │   └── Middleware/            # Exception / audit
+│   └── HospitalStats.Api.Tests/   # xUnit test suite
 ├── docs/                          # Documentation
 ├── deploy/publish/                # Publish output
 └── CLAUDE.md                      # AI-assisted development guide
@@ -86,7 +85,7 @@ export Encryption__Key=<16-char random string>
 cd deploy/publish && dotnet HospitalStats.Api.dll --urls http://0.0.0.0:5000
 ```
 
-Default admin account: `admin` / `admin123` (change immediately after first login).
+Default admin account `admin` with a randomly generated password printed to console on first startup. Change immediately after logging in.
 
 ### Important
 
