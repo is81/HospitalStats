@@ -296,4 +296,8 @@ cp F:/HospitalStats/backups/config_20260601_131318.db F:/HospitalStats/HospitalS
 - **主题变量文件**: `src/styles/theme.css` — 覆盖 Element Plus CSS 变量
 - **设计方向**: "Clinical Precision" — 克制、专业、信赖感，避免花哨，强调信息层次
 
+## 文档约定
+
+- 调研文档/说明文档/技术总结等，默认保存到 `F:\docs\` 目录
+
 新建或美化页面时必须遵循此设计系统，确保风格统一。
