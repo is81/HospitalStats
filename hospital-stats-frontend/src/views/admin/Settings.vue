@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage } from 'element-plus';
 import { settingsApi } from '../../api/settings';
-import api from '../../api/index';
 
 const loading = ref(false);
 const saving = ref(false);
@@ -10,18 +9,13 @@ const form = ref<Record<string, string | number>>({
   QueryTimeoutSeconds: '120',
   MaxRowCount: '50000',
 });
-const licenseStatus = ref('');
 
 async function load() {
   loading.value = true;
   try {
-    const [sRes, lRes] = await Promise.all([
-      settingsApi.getAll(),
-      api.get('/license/status'),
-    ]);
-    form.value.QueryTimeoutSeconds = sRes.data.QueryTimeoutSeconds || '120';
-    form.value.MaxRowCount = sRes.data.MaxRowCount || '50000';
-    licenseStatus.value = lRes.data.message;
+    const res = await settingsApi.getAll();
+    form.value.QueryTimeoutSeconds = res.data.QueryTimeoutSeconds || '120';
+    form.value.MaxRowCount = res.data.MaxRowCount || '50000';
   } finally {
     loading.value = false;
   }
@@ -40,16 +34,6 @@ async function save() {
   } finally {
     saving.value = false;
   }
-}
-
-async function resetLicense() {
-  try {
-    await ElMessageBox.confirm('确定要清除激活状态吗？清除后需要重新输入激活码。', '提示', { type: 'warning' });
-    await api.post('/license/reset');
-    ElMessage.success('已清除，请退出登录重新激活');
-    const res = await api.get('/license/status');
-    licenseStatus.value = res.data.message;
-  } catch { /* cancelled */ }
 }
 
 onMounted(load);
@@ -73,16 +57,6 @@ onMounted(load);
           <span style="color:#909399;font-size:12px;margin-left:8px">超出弹窗提醒，默认 50000</span>
         </el-form-item>
       </el-form>
-    </div>
-
-    <div style="background:#fff;padding:24px;border-radius:8px;max-width:520px;margin-top:16px">
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <div>
-          <div style="font-size:14px;font-weight:600;color:#1e293b;margin-bottom:4px">授权状态</div>
-          <div style="font-size:13px;color:#64748b">{{ licenseStatus }}</div>
-        </div>
-        <el-button type="danger" plain size="small" @click="resetLicense">重新激活</el-button>
-      </div>
     </div>
   </div>
 </template>

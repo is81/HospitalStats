@@ -79,8 +79,10 @@ public class AuthController : ControllerBase
 
     private string GenerateJwt(Models.User user, List<string> roles)
     {
-        var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(_config["Jwt:Key"] ?? "HospitalStats@JwtSecretKey2026!"));
+        var jwtKey = _config["Jwt:Key"];
+        if (string.IsNullOrEmpty(jwtKey))
+            throw new InvalidOperationException("Jwt:Key is not configured.");
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var claims = new List<Claim>

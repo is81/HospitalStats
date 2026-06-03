@@ -39,7 +39,11 @@ try
         options.UseSqlite(builder.Configuration.GetConnectionString("ConfigDb")));
 
     // JWT
-    var jwtKey = builder.Configuration["Jwt:Key"] ?? "HospitalStats@JwtSecretKey2026!";
+    var jwtKey = builder.Configuration["Jwt:Key"];
+    if (string.IsNullOrEmpty(jwtKey) && builder.Environment.IsProduction())
+        throw new InvalidOperationException("Jwt:Key is required in production. Set it via environment variable or appsettings.json.");
+    jwtKey ??= "HospitalStats@DevOnly_ChangeInProduction";
+
     builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer(options =>
         {
@@ -80,7 +84,6 @@ try
     builder.Services.AddScoped<QueryExecutionService>();
     builder.Services.AddScoped<SqlParsingService>();
     builder.Services.AddSingleton<SystemSettingsService>();
-    builder.Services.AddSingleton<LicenseService>();
     builder.Services.AddMemoryCache();
     builder.Services.AddHostedService<ConfigDbBackupService>();
 
@@ -115,14 +118,19 @@ try
 
     var app = builder.Build();
 
-    // Warn if using default keys
-    if (builder.Configuration["Jwt:Key"] == "HospitalStats@JwtSecretKey2026!ThisShouldBeChangedInProduction"
-        || string.IsNullOrEmpty(builder.Configuration["Jwt:Key"]))
-        Log.Warning("!!! 使用默认 JWT 密钥，生产环境请设置 Jwt:Key 环境变量 !!!");
-    if (builder.Configuration["Encryption:Key"] == "HospitalStats@2026!SecretKey123"
-        || string.IsNullOrEmpty(builder.Configuration["Encryption:Key"]))
-        Log.Warning("!!! 使用默认加密密钥，生产环境请设置 Encryption:Key 环境变量 !!!");
-
+    // Warn / block on insecure keys
+    if (string.IsNullOrEmpty(builder.Configuration["Jwt:Key"]))
+    {
+        if (app.Environment.IsProduction())
+            throw new InvalidOperationException("Jwt:Key is required in production.");
+        Log.Warning("!!! Jwt:Key 未设置，使用开发默认密钥。生产环境请设置环境变量 !!!");
+    }
+    if (string.IsNullOrEmpty(builder.Configuration["Encryption:Key"]))
+    {
+        if (app.Environment.IsProduction())
+            throw new InvalidOperationException("Encryption:Key is required in production.");
+        Log.Warning("!!! Encryption:Key 未设置，使用开发默认密钥。生产环境请设置环境变量 !!!");
+    }
     // Auto-migrate & seed
     using (var scope = app.Services.CreateScope())
     {
@@ -134,14 +142,16 @@ try
 
         if (!db.Users.Any())
         {
+            var adminPassword = Guid.NewGuid().ToString("N")[..10];
             var adminUser = new HospitalStats.Api.Models.User
             {
                 Username = "admin",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123"),
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(adminPassword),
                 DisplayName = "系统管理员"
             };
             db.Users.Add(adminUser);
             db.SaveChanges();
+            Log.Information("管理员账号: admin / {Password}（首次登录后请修改）", adminPassword);
 
             var adminRole = new HospitalStats.Api.Models.Role
             {
@@ -166,9 +176,6 @@ try
 
     // Global exception handling
     app.UseMiddleware<ExceptionMiddleware>();
-
-    // License check (allow login + activation, block all other API if not activated)
-    app.UseMiddleware<LicenseMiddleware>();
 
     // Request logging
     app.UseSerilogRequestLogging(options =>
