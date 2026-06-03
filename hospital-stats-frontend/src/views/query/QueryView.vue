@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { queryApi, type QueryConfigDetail } from '../../api/query';
 import { executeApi, type QueryResult } from '../../api/execute';
 import * as echarts from 'echarts';
 
 const route = useRoute();
+const router = useRouter();
 const configId = Number(route.params.configId);
 
 const config = ref<QueryConfigDetail | null>(null);
@@ -40,6 +41,11 @@ const sendFilterValues = computed(() => {
 
 async function loadConfig() {
   const res = await queryApi.getConfig(configId);
+  if (!res.data.isEnabled) {
+    ElMessage.error('该查询配置已禁用');
+    router.replace('/query/preview');
+    return;
+  }
   config.value = res.data;
   // init filter defaults and operators
   for (const f of res.data.filters) {

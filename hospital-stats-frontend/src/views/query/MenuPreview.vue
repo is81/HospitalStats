@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { ElMessage } from 'element-plus';
 import { useAuthStore } from '../../stores/auth';
 import { queryApi, type MenuItem } from '../../api/query';
 
@@ -19,6 +20,10 @@ async function loadMenus() {
 }
 
 function handleMenuClick(menu: MenuItem) {
+  if (!menu.isEnabled) {
+    ElMessage.warning('此菜单已禁用');
+    return;
+  }
   if (menu.queryConfigId) {
     router.push(`/query/view/${menu.queryConfigId}`);
   }
@@ -46,10 +51,11 @@ onMounted(loadMenus);
       <div v-else>
         <div v-for="menu in menus" :key="menu.id" style="margin-bottom: 20px">
           <!-- Root menu -->
-          <div style="font-size: 15px; font-weight: 600; color: #303133; padding: 8px 0;
-            border-bottom: 1px solid #ebeef5; margin-bottom: 12px; display: flex; align-items: center; gap: 6px">
+          <div :style="{ fontSize: '15px', fontWeight: 600, color: menu.isEnabled ? '#303133' : '#c0c4cc', padding: '8px 0',
+            borderBottom: '1px solid #ebeef5', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }">
             <el-icon v-if="menu.icon" size="16"><component :is="menu.icon" /></el-icon>
             {{ menu.name }}
+            <el-tag v-if="!menu.isEnabled" size="small" type="info">已禁用</el-tag>
           </div>
 
           <!-- Children as clickable cards -->
@@ -57,7 +63,7 @@ onMounted(loadMenus);
             <el-col v-for="child in menu.children" :key="child.id"
               :span="6" style="margin-bottom: 12px">
               <div
-                :class="{ 'menu-card': true, 'clickable': hasQueryConfig(child) }"
+                :class="{ 'menu-card': true, 'clickable': hasQueryConfig(child) && child.isEnabled, 'disabled-card': !child.isEnabled }"
                 @click="handleMenuClick(child)">
                 <div style="font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 4px">
                   <el-icon v-if="child.icon" size="14"><component :is="child.icon" /></el-icon>
@@ -65,6 +71,7 @@ onMounted(loadMenus);
                 </div>
                 <div style="font-size: 12px; color: #909399; margin-top: 4px">
                   {{ child.queryConfigName || '目录' }}
+                  <el-tag v-if="!child.isEnabled" size="small" type="info" style="margin-left: 4px">已禁用</el-tag>
                 </div>
               </div>
             </el-col>
@@ -94,4 +101,5 @@ onMounted(loadMenus);
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(64, 158, 255, 0.15);
 }
+.disabled-card { opacity: 0.5; cursor: not-allowed; }
 </style>

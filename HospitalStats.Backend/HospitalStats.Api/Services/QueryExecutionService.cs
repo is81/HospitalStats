@@ -67,6 +67,8 @@ public class QueryExecutionService
 
         if (config?.MainTable?.DataSource == null)
             throw new ArgumentException("查询配置无效");
+        if (!config.IsEnabled)
+            throw new InvalidOperationException("该查询配置已禁用");
 
         var ds = config.MainTable.DataSource;
         var connStr = _dsService.Decrypt(ds.ConnectionString);
@@ -304,6 +306,8 @@ public class QueryExecutionService
 
         if (config?.MainTable?.DataSource == null)
             throw new ArgumentException("查询配置无效");
+        if (!config.IsEnabled)
+            throw new InvalidOperationException("该查询配置已禁用");
 
         var filter = config.Filters.FirstOrDefault(f => f.Id == filterId);
         var col = filter?.MetaColumn;
