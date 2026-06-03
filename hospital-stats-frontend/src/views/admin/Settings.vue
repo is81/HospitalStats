@@ -6,7 +6,7 @@ import api from '../../api/index';
 
 const loading = ref(false);
 const saving = ref(false);
-const form = ref({
+const form = ref<Record<string, string | number>>({
   QueryTimeoutSeconds: '120',
   MaxRowCount: '50000',
 });
@@ -30,7 +30,10 @@ async function load() {
 async function save() {
   saving.value = true;
   try {
-    await settingsApi.update(form.value);
+    await settingsApi.update({
+      QueryTimeoutSeconds: String(form.value.QueryTimeoutSeconds),
+      MaxRowCount: String(form.value.MaxRowCount),
+    });
     ElMessage.success('已保存，立即生效');
   } catch {
     ElMessage.error('保存失败');
