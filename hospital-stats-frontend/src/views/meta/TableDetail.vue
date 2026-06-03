@@ -53,7 +53,7 @@ onMounted(loadColumns);
 
     <el-table :data="columns" v-loading="loading" border stripe max-height="calc(100vh - 200px)">
       <el-table-column prop="sortOrder" label="#" width="50" align="center" />
-      <el-table-column prop="columnName" label="字段名" width="160" fixed />
+      <el-table-column prop="columnName" label="字段名" width="160" />
       <el-table-column label="中文别名" min-width="160">
         <template #default="{ row }">
           <el-input v-model="row.alias" size="small" placeholder="输入中文别名" clearable />
@@ -84,7 +84,7 @@ onMounted(loadColumns);
           <el-switch v-model="row.isDisplayField" size="small" />
         </template>
       </el-table-column>
-      <el-table-column label="保存" width="70" align="center" fixed="right">
+      <el-table-column label="保存" width="70" align="center">
         <template #default="{ row }">
           <el-button size="small" type="primary" @click="saveColumn(row)">保存</el-button>
         </template>

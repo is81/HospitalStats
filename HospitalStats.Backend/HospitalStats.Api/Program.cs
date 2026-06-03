@@ -175,6 +175,7 @@ try
 
     app.UseCors();
     app.UseAuthentication();
+    app.UseMiddleware<AuditLogMiddleware>();
     app.UseAuthorization();
 
     // Serve frontend static files in production (single deployable)
