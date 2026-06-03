@@ -24,6 +24,21 @@ public class QueryExecutionService
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly int _queryTimeoutSeconds;
 
+    private static readonly HashSet<string> _sqlKeywords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "WHERE", "GROUP", "ORDER", "HAVING", "ON", "AND", "OR", "SET",
+        "LEFT", "RIGHT", "INNER", "OUTER", "FULL", "CROSS", "JOIN",
+        "SELECT", "FROM", "UNION", "INSERT", "UPDATE", "DELETE",
+        "BY", "AS", "IN", "NOT", "NULL", "IS", "LIKE", "BETWEEN",
+        "DISTINCT", "ALL", "ANY", "SOME", "EXISTS", "CASE", "WHEN",
+        "THEN", "ELSE", "END", "WITH", "START", "CONNECT",
+        "COUNT", "SUM", "AVG", "MAX", "MIN", "NVL", "DECODE",
+        "TO_DATE", "TO_CHAR", "TRUNC", "ROWNUM", "RAWTOHEX",
+        "UTL_RAW", "CAST", "HEXTORAW", "VALUE", "VALUES",
+        "DESC", "ASC", "NULLS", "PRIMARY", "KEY", "INDEX",
+        "CREATE", "ALTER", "DROP", "TABLE", "VIEW", "INTO"
+    };
+
     public QueryExecutionService(AppDbContext db, DataSourceService dsService,
         IMemoryCache cache, ILogger<QueryExecutionService> logger,
         IHttpContextAccessor httpContextAccessor, IConfiguration config)
@@ -78,12 +93,21 @@ public class QueryExecutionService
         var useRawSqlForCount = hasRawSql;
         var useRawSqlForData = hasRawSql;
 
+        // Pre-load all MetaColumns for hex encoding fallback type lookup
+        Dictionary<string, List<MetaColumn>>? rawSqlAllColumns = null;
+        if (hasRawSql && useHexEncoding)
+        {
+            var allDsColumns = await _db.MetaColumns.Include(c => c.MetaTable).ToListAsync();
+            rawSqlAllColumns = allDsColumns.GroupBy(c => c.MetaTable!.TableName)
+                .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+        }
+
         // build SQL — paramValues holds final parameter values (hex-encoded or original),
         // separate from filters which stays as original user input for cache key + path decisions
         var paramValues = new Dictionary<string, string>();
         var (countSql, countParams) = BuildCountSql(config, filters, contextValues, paramValues, useRawSqlForCount, charSetOverride);
-        var (dataSql, dataParams) = BuildDataSql(config, page, pageSize ?? config.PageSize ?? 50,
-            filters, contextValues, paramValues, useHexEncoding, useRawSqlForData, charSetOverride);
+        var (dataSql, dataParams, rawColAliasMap, rawHexSafeColumns) = BuildDataSql(config, page, pageSize ?? config.PageSize ?? 50,
+            filters, contextValues, paramValues, useHexEncoding, useRawSqlForData, charSetOverride, rawSqlAllColumns);
         var allParams = MergeParams(countParams, dataParams, paramValues);
 
         _logger.LogInformation("Count SQL: {Sql}", countSql);
@@ -146,6 +170,13 @@ public class QueryExecutionService
             if (useHexEncoding && IsStringType(col.DataType))
                 hexColumns.Add(sqlAlias);
         }
+        // Merge hex-safe columns from raw SQL wrapper (covers non-ASCII aliases)
+        foreach (var safe in rawHexSafeColumns)
+            hexColumns.Add(safe);
+        // Add hex-safe alias remapping for non-ASCII column names
+        foreach (var (orig, safe) in rawColAliasMap)
+            if (orig != safe)
+                colDisplayMap[safe] = orig;
 
         // convert to list of dictionaries
         var resultRows = new List<Dictionary<string, object?>>();
@@ -308,7 +339,8 @@ public class QueryExecutionService
 
     internal static void ValidateRawSqlReadOnly(string sql)
     {
-        var t = sql.TrimStart();
+        // Strip leading comments and whitespace
+        var t = Regex.Replace(sql.TrimStart(), @"^\s*--[^\n]*\n?", "", RegexOptions.Multiline).TrimStart();
         if (t.Length == 0) return;
         // Oracle: first keyword must be SELECT or WITH (CTE)
         var firstWord = t.Length >= 6 ? t[..6] : t;
@@ -399,8 +431,11 @@ public class QueryExecutionService
         if (useRawSqlPath)
         {
             var rawAliases = ExtractAliasesFromRawSql(rawSql);
-var rawWhere = BuildOuterWhereForRawSql(config, userFilters, contextValues, paramValues, charSetOverride, rawAliases);
-            var innerSql = InjectWhereIntoRawSql(rawSql, rawWhere);
+var isUnionCount = Regex.IsMatch(rawSql, @"\bUNION\s+(ALL\s+)?SELECT\b", RegexOptions.IgnoreCase);
+            var innerSql = isUnionCount
+                ? InjectWhereIntoUnionSql(rawSql, config, userFilters, contextValues, paramValues, charSetOverride)
+                : InjectWhereIntoRawSql(rawSql,
+                    BuildOuterWhereForRawSql(config, userFilters, contextValues, paramValues, charSetOverride, rawAliases));
             // Hex-encode inline Chinese literals in JOIN / subquery conditions
             if (!string.IsNullOrEmpty(charSetOverride))
                 innerSql = HexEncodeInlineLiterals(innerSql, charSetOverride);
@@ -415,25 +450,34 @@ var rawWhere = BuildOuterWhereForRawSql(config, userFilters, contextValues, para
         return (sb.ToString(), new Dictionary<string, object?>());
     }
 
-    internal (string Sql, Dictionary<string, object?> Params) BuildDataSql(
+    internal (string Sql, Dictionary<string, object?> Params, Dictionary<string, string> ColAliasMap, HashSet<string> HexSafeColumns) BuildDataSql(
         QueryConfig config, int page, int pageSize, Dictionary<string, string> userFilters,
         Dictionary<string, string> contextValues, Dictionary<string, string> paramValues,
-        bool useHexEncoding, bool useRawSqlPath, string? charSetOverride = null)
+        bool useHexEncoding, bool useRawSqlPath, string? charSetOverride = null,
+        Dictionary<string, List<MetaColumn>>? rawSqlAllColumns = null)
     {
         string innerSql;
+        var rawSqlColAliasMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var rawHexSafeColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var rawSql = SanitizeRawSql(config.RawSql);
         if (useRawSqlPath)
         {
             var rawAliases = ExtractAliasesFromRawSql(rawSql);
-var rawWhere = BuildOuterWhereForRawSql(config, userFilters, contextValues, paramValues, charSetOverride, rawAliases);
-            innerSql = InjectWhereIntoRawSql(rawSql, rawWhere);
+var isUnionCount = Regex.IsMatch(rawSql, @"\bUNION\s+(ALL\s+)?SELECT\b", RegexOptions.IgnoreCase);
+            innerSql = isUnionCount
+                ? InjectWhereIntoUnionSql(rawSql, config, userFilters, contextValues, paramValues, charSetOverride)
+                : InjectWhereIntoRawSql(rawSql,
+                    BuildOuterWhereForRawSql(config, userFilters, contextValues, paramValues, charSetOverride, rawAliases));
 
             // For US7ASCII: hex-encode inline non-ASCII string literals in the raw
             // SQL (JOIN conditions, subqueries, etc.) before other hex wrapping.
             if (useHexEncoding)
             {
                 innerSql = HexEncodeInlineLiterals(innerSql, charSetOverride!);
-                innerSql = HexEncodeRawSqlColumns(innerSql, config, rawAliases);
+                var (hexSql, hexAliasMap, hexSafeCols) = HexEncodeRawSqlColumns(innerSql, config, rawAliases, rawSqlAllColumns);
+                innerSql = hexSql;
+                rawSqlColAliasMap = hexAliasMap;
+                rawHexSafeColumns = hexSafeCols;
             }
         }
         else
@@ -480,7 +524,7 @@ var rawWhere = BuildOuterWhereForRawSql(config, userFilters, contextValues, para
             ["p_endRow"] = endRow,
             ["p_startRow"] = startRow
         };
-        return (paginatedSql, extraParams);
+        return (paginatedSql, extraParams, rawSqlColAliasMap, rawHexSafeColumns);
     }
 
     internal static bool IsStringType(string? dataType) => dataType?.ToUpperInvariant() switch
@@ -632,13 +676,27 @@ var rawWhere = BuildOuterWhereForRawSql(config, userFilters, contextValues, para
     internal static Dictionary<string, string> ExtractAliasesFromRawSql(string rawSql)
     {
         var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        // Match: [schema.]table_name alias  or  [schema.]table_name "alias"
-        foreach (Match m in Regex.Matches(rawSql,
-            @"(?:(\w+)\s*\.\s*)?(\w+)\s+(""?\w+""?)\b",
+        // Anchor to FROM, JOIN, or comma (for old-style FROM a, b, c syntax).
+        // Only match table references by limiting the scan to the portion of SQL
+        // starting from the first FROM keyword — prevents commas in the SELECT list
+        // from producing false matches like "visit_date→visit_date".
+        var fromMatch = Regex.Match(rawSql, @"\bFROM\b", RegexOptions.IgnoreCase);
+        var scanPart = fromMatch.Success ? rawSql[fromMatch.Index..] : rawSql;
+        foreach (Match m in Regex.Matches(scanPart,
+            @"(?:\bFROM\b|\bJOIN\b|,)\s*(?:(\w+)\.)?(\w+)(?:\s+(""?\w+""?))?\b",
             RegexOptions.IgnoreCase))
         {
             var tableName = m.Groups[2].Value;
-            var alias = m.Groups[3].Value.Trim('"');
+            if (_sqlKeywords.Contains(tableName)) continue;
+
+            string alias;
+            if (m.Groups[3].Success)
+                alias = m.Groups[3].Value.Trim('"');
+            else
+                alias = tableName;
+
+            if (_sqlKeywords.Contains(alias)) continue;
+
             if (!map.ContainsKey(tableName))
                 map[tableName] = alias;
         }
@@ -665,41 +723,96 @@ var rawWhere = BuildOuterWhereForRawSql(config, userFilters, contextValues, para
         return rawSql[..insertPos].TrimEnd() + keyword + whereClause + " " + rawSql[insertPos..].TrimStart();
     }
 
+    /// <summary>Split a UNION SQL into individual branch SELECT statements.</summary>
+    internal static List<string> SplitUnionBranches(string sql)
+    {
+        var branches = new List<string>();
+        var unionPattern = new Regex(@"\bUNION\s+(ALL\s+)?(?=\s*SELECT\b)", RegexOptions.IgnoreCase);
+        var matches = unionPattern.Matches(sql);
+        if (matches.Count == 0) { branches.Add(sql); return branches; }
+        int lastEnd = 0;
+        foreach (Match m in matches)
+        {
+            branches.Add(sql[lastEnd..m.Index].Trim());
+            lastEnd = m.Index + m.Length;
+        }
+        branches.Add(sql[lastEnd..].Trim());
+        return branches;
+    }
+
+    /// <summary>Inject a WHERE clause into every branch of a UNION query.</summary>
+    internal string InjectWhereIntoUnionSql(string sql, QueryConfig config,
+        Dictionary<string, string> userFilters, Dictionary<string, string> contextValues,
+        Dictionary<string, string> paramValues, string? charSetOverride = null)
+    {
+        var branches = SplitUnionBranches(sql);
+        _logger.LogInformation("UNION split: {Count} branches", branches.Count);
+        if (config.Filters.Count == 0) return sql;
+        var injected = new List<string>(branches.Count);
+        for (int b = 0; b < branches.Count; b++)
+        {
+            var branchAliases = ExtractAliasesFromRawSql(branches[b]);
+            _logger.LogInformation("UNION branch {B}: aliases=[{A}]", b, string.Join(",", branchAliases.Select(kv => kv.Key + "->" + kv.Value)));
+            var branchWhere = BuildOuterWhereForRawSql(config, userFilters, contextValues,
+                paramValues, charSetOverride, branchAliases, isUnionContext: true);
+            _logger.LogInformation("UNION branch {B} WHERE: {W}", b, branchWhere ?? "(null)");
+            injected.Add(InjectWhereIntoRawSql(branches[b], branchWhere));
+        }
+        return string.Join("\nUNION ALL\n", injected);
+    }
+
     /// <summary>
     /// Wrap rawSql as a subquery, hex-encoding string output columns in the outer SELECT.
-    /// Parses output column aliases from the rawSql SELECT, matches them against
-    /// configured string-type MetaColumns, and wraps matching columns with RAWTOHEX.
+    /// For US7ASCII databases, non-ASCII column aliases in the inner SQL are rewritten
+    /// to ASCII-safe _cN placeholders so the outer wrapper can reference them without
+    /// corruption during ODP.NET transport.
     /// </summary>
-    internal static string HexEncodeRawSqlColumns(string rawSql, QueryConfig config,
-        Dictionary<string, string> rawAliases)
+    internal static (string Sql, Dictionary<string, string> AliasMap, HashSet<string> HexSafeColumns) HexEncodeRawSqlColumns(
+        string rawSql, QueryConfig config,
+        Dictionary<string, string> rawAliases,
+        Dictionary<string, List<MetaColumn>>? rawSqlAllColumns = null)
     {
         var aliases = ParseSelectAliases(rawSql);
-        if (aliases.Count == 0) return rawSql;
+        if (aliases.Count == 0) return (rawSql, new Dictionary<string, string>(), new HashSet<string>());
+
+        // Validate UNION branch column counts
+        if (Regex.IsMatch(rawSql, @"\bUNION\s+(ALL\s+)?SELECT\b", RegexOptions.IgnoreCase))
+        {
+            var branches = SplitUnionBranches(rawSql);
+            for (int i = 1; i < branches.Count; i++)
+            {
+                var branchAliases = ParseSelectAliases(branches[i]);
+                if (branchAliases.Count != aliases.Count)
+                    System.Diagnostics.Debug.WriteLine(
+                        $"UNION column count mismatch: branch 0 has {aliases.Count}, branch {i} has {branchAliases.Count}");
+            }
+        }
 
         // Build set of string column names from configured Fields.
-        // If no Fields are configured (RawSql-only mode), derive from MainTable MetaColumns.
         var stringCols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var field in config.Fields)
         {
             var col = field.MetaColumn;
-            if (col == null || !IsStringType(col.DataType)) continue;
-            stringCols.Add(col.ColumnName ?? "");
-            if (!string.IsNullOrEmpty(col.Alias))
-                stringCols.Add(col.Alias);
+            if (col != null && IsStringType(col.DataType))
+            {
+                stringCols.Add(col.ColumnName ?? "");
+                if (!string.IsNullOrEmpty(col.Alias))
+                    stringCols.Add(col.Alias);
+            }
+            // Field-level display alias added regardless of MetaColumn state
+            if (!string.IsNullOrEmpty(field.Alias))
+                stringCols.Add(field.Alias);
         }
 
-        // Fallback for RawSql-only configs: look up string columns from MainTable + JoinTables
+        // Fallback for RawSql-only configs
         if (stringCols.Count == 0 && config.MainTable != null)
         {
             var allMetaCols = new List<MetaColumn>();
             if (config.MainTable.Columns != null && config.MainTable.Columns.Count > 0)
                 allMetaCols.AddRange(config.MainTable.Columns);
             foreach (var join in config.Joins)
-            {
                 if (join.JoinTable?.Columns != null)
                     allMetaCols.AddRange(join.JoinTable.Columns);
-            }
-
             foreach (var col in allMetaCols)
             {
                 if (!IsStringType(col.DataType)) continue;
@@ -709,23 +822,202 @@ var rawWhere = BuildOuterWhereForRawSql(config, userFilters, contextValues, para
             }
         }
 
-        var wrapped = new List<string>();
-        var hasHex = false;
-        foreach (var alias in aliases)
+        // Build inner-safe and outer alias mappings
+        var innerAliasMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var outerAliasMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        bool hasNonAsciiAlias = false;
+        int nonAsciiIdx = 0;
+        for (int i = 0; i < aliases.Count; i++)
         {
-            if (stringCols.Contains(alias))
+            var alias = aliases[i];
+            if (ContainsNonAscii(alias))
             {
-                wrapped.Add($"RAWTOHEX(UTL_RAW.CAST_TO_RAW(\"{alias}\")) AS \"{alias}\"");
-                hasHex = true;
+                innerAliasMap[alias] = "_c" + nonAsciiIdx;
+                outerAliasMap[alias] = "_cx" + nonAsciiIdx;
+                nonAsciiIdx++;
+                hasNonAsciiAlias = true;
             }
             else
             {
-                wrapped.Add($"\"{alias}\"");
+                innerAliasMap[alias] = alias;
+                outerAliasMap[alias] = alias;
             }
         }
 
-        if (!hasHex) return rawSql;
-        return $"SELECT {string.Join(", ", wrapped)} FROM ({rawSql}) \"_raw\"";
+        // Rewrite raw SQL to replace non-ASCII column aliases
+        var innerSql = hasNonAsciiAlias
+            ? RewriteRawSqlSelectAliases(rawSql, innerAliasMap)
+            : rawSql;
+
+        // Parse raw SQL column expressions for fallback type lookup
+        var rawSelectExprs = SplitRawSelectColumns(rawSql);
+
+        var wrapped = new List<string>();
+        var hasHex = false;
+        var hexSafeColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        for (int i = 0; i < aliases.Count; i++)
+        {
+            var alias = aliases[i];
+            var innerAlias = innerAliasMap[alias];
+            var outerAlias = outerAliasMap[alias];
+
+            bool isString = stringCols.Contains(alias);
+
+            // Fallback: extract DB column name from SELECT expression
+            if (!isString && rawSqlAllColumns != null && i < rawSelectExprs.Count)
+            {
+                var colName = ExtractColumnName(rawSelectExprs[i]);
+                if (colName != null)
+                    isString = IsStringColumnInAnyTable(colName, rawSqlAllColumns);
+            }
+
+            if (isString)
+            {
+                wrapped.Add($"RAWTOHEX(UTL_RAW.CAST_TO_RAW(\"{innerAlias}\")) AS \"{outerAlias}\"");
+                hasHex = true;
+                hexSafeColumns.Add(outerAlias);
+            }
+            else
+            {
+                wrapped.Add($"\"{innerAlias}\" AS \"{outerAlias}\"");
+            }
+        }
+
+        if (!hasHex && !hasNonAsciiAlias)
+            return (rawSql, outerAliasMap, hexSafeColumns);
+        return ($"SELECT {string.Join(", ", wrapped)} FROM ({innerSql}) \"_raw\"", outerAliasMap, hexSafeColumns);
+    }
+
+    /// <summary>Rewrite non-ASCII column aliases in UNION branches.</summary>
+    internal static string RewriteRawSqlSelectAliases(string rawSql,
+        Dictionary<string, string> aliasToSafe)
+    {
+        var isUnion = Regex.IsMatch(rawSql, @"\bUNION\s+(ALL\s+)?SELECT\b", RegexOptions.IgnoreCase);
+        if (!isUnion)
+            return RewriteOneSelectAliases(rawSql, aliasToSafe);
+        var branches = SplitUnionBranches(rawSql);
+        var rewritten = branches.Select(b => RewriteOneSelectAliases(b, aliasToSafe)).ToList();
+        return string.Join("\nUNION ALL\n", rewritten);
+    }
+
+    /// <summary>Rewrite column aliases in a single SELECT statement.</summary>
+    internal static string RewriteOneSelectAliases(string sql,
+        Dictionary<string, string> aliasToSafe)
+    {
+        var selectMatch = Regex.Match(sql,
+            @"\bSELECT\s+(.+?)\s+\bFROM\b",
+            RegexOptions.IgnoreCase | RegexOptions.Singleline);
+        if (!selectMatch.Success) return sql;
+        var selectPart = selectMatch.Groups[1].Value;
+        var selectStart = selectMatch.Groups[1].Index;
+        var selectEnd = selectStart + selectPart.Length;
+        var columns = SplitSelectColumns(selectPart);
+        var rewritten = new List<string>();
+        foreach (var colExpr in columns)
+            rewritten.Add(ReplaceNonAsciiAlias(colExpr, aliasToSafe));
+        var newSelect = string.Join(", ", rewritten);
+        return sql[..selectStart] + newSelect + sql[selectEnd..];
+    }
+
+    /// <summary>Split SELECT columns respecting parentheses depth.</summary>
+    internal static List<string> SplitSelectColumns(string selectPart)
+    {
+        var parts = new List<string>();
+        int depth = 0, start = 0;
+        for (int i = 0; i < selectPart.Length; i++)
+        {
+            if (selectPart[i] == '(') depth++;
+            else if (selectPart[i] == ')') depth--;
+            else if (selectPart[i] == ',' && depth == 0)
+            {
+                parts.Add(selectPart[start..i].Trim());
+                start = i + 1;
+            }
+        }
+        var last = selectPart[start..].Trim();
+        if (!string.IsNullOrEmpty(last)) parts.Add(last);
+        return parts;
+    }
+
+    /// <summary>Replace non-ASCII alias in a SELECT column expression.</summary>
+    internal static string ReplaceNonAsciiAlias(string colExpr,
+        Dictionary<string, string> aliasToSafe)
+    {
+        var trimmed = colExpr.TrimEnd();
+        // "expr AS \"alias\""
+        var asQuotedMatch = Regex.Match(trimmed,
+            @"\b(AS)\s+""([^""]+)""\s*$", RegexOptions.IgnoreCase);
+        if (asQuotedMatch.Success)
+        {
+            var alias = asQuotedMatch.Groups[2].Value;
+            if (ContainsNonAscii(alias) && aliasToSafe.TryGetValue(alias, out var safe))
+                return Regex.Replace(trimmed, @"\b(AS)\s+""[^""]+""\s*$",
+                    $"$1 \"{safe}\"", RegexOptions.IgnoreCase);
+            return colExpr;
+        }
+        // "expr \"alias\""
+        var quotedMatch = Regex.Match(trimmed, @"""([^""]+)""\s*$");
+        if (quotedMatch.Success)
+        {
+            var alias = quotedMatch.Groups[1].Value;
+            if (ContainsNonAscii(alias) && aliasToSafe.TryGetValue(alias, out var safe))
+                return Regex.Replace(trimmed, @"""[^""]+""\s*$", $"\"{safe}\"");
+            return colExpr;
+        }
+        // Bare unquoted non-ASCII alias
+        var bareMatch = Regex.Match(trimmed, @"\s+(\w[\w-]*)\s*$");
+        if (bareMatch.Success)
+        {
+            var alias = bareMatch.Groups[1].Value;
+            if (ContainsNonAscii(alias) && aliasToSafe.TryGetValue(alias, out var safe))
+                return Regex.Replace(trimmed,
+                    @"\s+" + Regex.Escape(alias) + @"\s*$", $" \"{safe}\"");
+        }
+        return colExpr;
+    }
+
+    /// <summary>Split the SELECT clause of raw SQL into column expressions.</summary>
+    internal static List<string> SplitRawSelectColumns(string rawSql)
+    {
+        var result = new List<string>();
+        var selectMatch = Regex.Match(rawSql,
+            @"\bSELECT\s+(.+?)\s+\bFROM\b",
+            RegexOptions.IgnoreCase | RegexOptions.Singleline);
+        if (!selectMatch.Success) return result;
+        return SplitSelectColumns(selectMatch.Groups[1].Value);
+    }
+
+    /// <summary>Extract bare DB column name from SELECT expression.</summary>
+    internal static string? ExtractColumnName(string colExpr)
+    {
+        var trimmed = colExpr.Trim();
+        trimmed = Regex.Replace(trimmed, @"\s+""[^""]*""\s*$", "");
+        trimmed = Regex.Replace(trimmed, @"\s+AS\s+""[^""]*""\s*$", "", RegexOptions.IgnoreCase);
+        var bareAliasMatch = Regex.Match(trimmed, @"\s+(\w+)\s*$");
+        if (bareAliasMatch.Success)
+        {
+            var potentialAlias = bareAliasMatch.Groups[1].Value;
+            if (!_sqlKeywords.Contains(potentialAlias) && !trimmed.Contains('('))
+                trimmed = trimmed[..bareAliasMatch.Index].Trim();
+        }
+        var lastDot = trimmed.LastIndexOf('.');
+        var colName = lastDot >= 0 ? trimmed[(lastDot + 1)..].Trim() : trimmed;
+        if (colName.Length > 0 && colName.All(c => char.IsLetterOrDigit(c) || c == '_'))
+            return colName;
+        return null;
+    }
+
+    /// <summary>Check if a column name is a string type in pre-loaded MetaColumns.</summary>
+    internal static bool IsStringColumnInAnyTable(string columnName,
+        Dictionary<string, List<MetaColumn>> allColumns)
+    {
+        foreach (var (_, cols) in allColumns)
+            foreach (var col in cols)
+                if (col.ColumnName?.Equals(columnName, StringComparison.OrdinalIgnoreCase) == true
+                    && IsStringType(col.DataType))
+                    return true;
+        return false;
     }
 
     /// <summary>
@@ -765,7 +1057,7 @@ var rawWhere = BuildOuterWhereForRawSql(config, userFilters, contextValues, para
                     {
                         var enc = Encoding.GetEncoding(sourceEncoding);
                         var hex = Convert.ToHexString(enc.GetBytes(content));
-                        sb.Append($"UTL_RAW.CAST_TO_VARCHAR2(HEXTORAW('{hex}'))");
+                        sb.Append($"RAWTOHEX(HEXTORAW('{hex}'))");
                     }
                     else
                     {
@@ -838,10 +1130,10 @@ var rawWhere = BuildOuterWhereForRawSql(config, userFilters, contextValues, para
                 if (qm.Success) alias = qm.Groups[1].Value;
             }
 
-            // 3. "func(...)alias" or "expr )alias" — alias directly after closing paren
+            // 3. "func(...) alias" — alias after closing paren and optional space
             if (alias == null)
             {
-                var pm = Regex.Match(trimmed, @"\)(\w+)\s*$");
+                var pm = Regex.Match(trimmed, @"\)\s+(\w+)\s*$");
                 if (pm.Success) alias = pm.Groups[1].Value;
             }
 
@@ -876,10 +1168,15 @@ var rawWhere = BuildOuterWhereForRawSql(config, userFilters, contextValues, para
     /// filter values are hex-encoded and the column reference is wrapped with
     /// RAWTOHEX(UTL_RAW.CAST_TO_RAW(...)). Both sides become pure ASCII so the comparison
     /// survives Oracle's lossy charset conversion. LIKE wildcards (% and _) are preserved.</summary>
-    internal string BuildOuterWhereForRawSql(QueryConfig config,
+    /// <summary>
+    /// Common filter-building logic shared by BuildWhereClause and BuildOuterWhereForRawSql.
+    /// Accepts a <paramref name="qualifyCol"/> delegate that resolves column references.
+    /// If qualifyCol returns null, the filter is skipped (supports per-filter omission).
+    /// </summary>
+    internal string BuildFilterParts(QueryConfig config,
         Dictionary<string, string> userFilters, Dictionary<string, string> contextValues,
-        Dictionary<string, string> paramValues, string? charSetOverride = null,
-        Dictionary<string, string>? rawAliases = null)
+        Dictionary<string, string> paramValues, string? charSetOverride,
+        Func<QueryFilter, string?> qualifyCol)
     {
         var parts = new List<string>();
         foreach (var filter in config.Filters.OrderBy(f => f.SortOrder))
@@ -910,17 +1207,11 @@ var rawWhere = BuildOuterWhereForRawSql(config, userFilters, contextValues, para
             var (effectiveOp, effectiveVal) = ParseFilterValue(effectiveValue, filter.Operator);
             if (string.IsNullOrEmpty(effectiveVal)) continue;
 
-            // Qualify column with table alias from rawSql to avoid ORA-00918 ambiguity
-            var colName = col.ColumnName ?? "COL";
-            var tableName = col.MetaTable?.TableName;
-            var qualified = colName;
-            if (!string.IsNullOrEmpty(tableName) && rawAliases != null && rawAliases.TryGetValue(tableName, out var alias))
-                qualified = $"{alias}.\"{colName}\"";
-            else
-                qualified = $"\"{colName}\"";
+            var qualified = qualifyCol(filter);
+            if (qualified == null) { _logger.LogInformation("Filter {Id} skipped: table not in branch", filter.Id); continue; }
 
-            var paramName = $"p_f_{filter.Id}";
             var isDate = "DATE".Equals(col.DataType, StringComparison.OrdinalIgnoreCase);
+            var paramName = $"p_f_{filter.Id}";
 
             // For US7ASCII databases: non-ASCII string values get corrupted through
             // ODP.NET parameter binding just like inline SQL text does. Work around
@@ -952,6 +1243,38 @@ var rawWhere = BuildOuterWhereForRawSql(config, userFilters, contextValues, para
             }
         }
         return string.Join(" AND ", parts);
+    }
+
+    /// <summary>
+    /// Build WHERE clause for raw SQL mode. Applies filters (normal + context)
+    /// using unqualified column names because rawSql subquery columns have no schema prefix.
+    /// Filter values are written into <paramref name="userFilters"/> so MergeParams picks them up.
+    ///
+    /// When <paramref name="charSetOverride"/> is set (US7ASCII database), non-ASCII string
+    /// filter values are hex-encoded and the column reference is wrapped with
+    /// RAWTOHEX(UTL_RAW.CAST_TO_RAW(...)). Both sides become pure ASCII so the comparison
+    /// survives Oracle's lossy charset conversion. LIKE wildcards (% and _) are preserved.</summary>
+    internal string BuildOuterWhereForRawSql(QueryConfig config,
+        Dictionary<string, string> userFilters, Dictionary<string, string> contextValues,
+        Dictionary<string, string> paramValues, string? charSetOverride = null,
+        Dictionary<string, string>? rawAliases = null,
+        bool isUnionContext = false)
+    {
+        return BuildFilterParts(config, userFilters, contextValues, paramValues, charSetOverride, filter =>
+        {
+            var colName = filter.MetaColumn?.ColumnName ?? "COL";
+            var tableName = filter.MetaColumn?.MetaTable?.TableName;
+            if (!string.IsNullOrEmpty(tableName) && rawAliases != null)
+            {
+                if (rawAliases.TryGetValue(tableName, out var alias))
+                    return $"{alias}.\"{colName}\"";
+                // Only skip the filter in UNION context (table genuinely absent from branch).
+                // For non-UNION or unknown context, fall through to unqualified column.
+                if (isUnionContext)
+                    return null;
+            }
+            return $"\"{colName}\"";
+        });
     }
 
     internal string BuildWhereClause(QueryConfig config, Dictionary<string, string> userFilters,

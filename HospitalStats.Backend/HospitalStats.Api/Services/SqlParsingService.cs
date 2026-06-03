@@ -27,13 +27,28 @@ public class SqlParsingService
         if (!Regex.IsMatch(sql, @"\bSELECT\b", RegexOptions.IgnoreCase))
             throw new ArgumentException("请输入有效的 SELECT 查询语句");
 
-        // UNION queries: execute as rawSql without parsing
+        // UNION queries: execute as rawSql without parsing, but extract main table from first branch
         if (Regex.IsMatch(sql, @"\bUNION\s+(ALL\s+)?SELECT\b", RegexOptions.IgnoreCase))
         {
+            var firstBranch = Regex.Split(sql, @"\bUNION\s+(ALL\s+)?(?=SELECT\b)", RegexOptions.IgnoreCase)[0];
+            var fromMatch = Regex.Match(firstBranch,
+                @"\bFROM\s+(?:(\w+)\.)?(\w+)(?:\s+(\w+))?\b", RegexOptions.IgnoreCase);
+            int? mainTableId = null;
+            string? mainTableName = null;
+            if (fromMatch.Success)
+            {
+                mainTableName = fromMatch.Groups[2].Value;
+                var metaTable = await _db.MetaTables
+                    .FirstOrDefaultAsync(t => t.TableName.ToUpper() == mainTableName.ToUpper());
+                mainTableId = metaTable?.Id;
+            }
             return new SqlParseResponse
             {
                 RawSql = sql,
-                UnsupportedPattern = "UNION"
+                OriginalSql = sql,
+                UnsupportedPattern = "UNION",
+                MainTableId = mainTableId,
+                MainTableName = mainTableName
             };
         }
 

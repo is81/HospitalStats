@@ -455,7 +455,7 @@ public class QueryExecutionServiceTests
         var contextValues = new Dictionary<string, string>();
 
         var paramValues = new Dictionary<string, string>();
-        var (sql, _) = service.BuildDataSql(config, 2, 20, new Dictionary<string, string>(), contextValues, paramValues, false, false);
+        var (sql, _, _, _) = service.BuildDataSql(config, 2, 20, new Dictionary<string, string>(), contextValues, paramValues, false, false);
 
         Assert.Contains("ROWNUM <= :p_endRow", sql);
         Assert.Contains("rn >= :p_startRow", sql);

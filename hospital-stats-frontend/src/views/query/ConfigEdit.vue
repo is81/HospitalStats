@@ -22,6 +22,7 @@ const tablesByDs = ref<Record<number, MetaTable[]>>({});
 // per-join-row data source selection (keyed by join row index)
 const joinDsId = ref<Record<number, number>>({});
 const tableColumns = ref<Record<number, MetaColumn[]>>({});
+const unionTableIds = ref<number[]>([]);
 
 // form
 const activeStep = ref(0);
@@ -185,6 +186,32 @@ async function applySqlResult() {
     selectedDsIds.value = [...dsIds];
   }
 
+  // UNION: also load columns from tables in other branches for filter configuration
+  if (r.unsupportedPattern === 'UNION') {
+    for (const ds of dataSources.value) {
+      if (!tablesByDs.value[ds.id]) {
+        const tRes = await metaApi.getTables(ds.id);
+        tablesByDs.value[ds.id] = tRes.data.filter(t => t.isEnabled);
+      }
+      for (const t of tablesByDs.value[ds.id]) {
+        if (!tables.value.find(ex => ex.id === t.id)) tables.value.push(t);
+      }
+    }
+    unionTableIds.value = [];
+    const unionParts = sqlText.value.split(/\bUNION\s+(?:ALL\s+)?(?=SELECT\b)/i);
+    for (let i = 1; i < unionParts.length; i++) {
+      const fromMatch = unionParts[i].match(/\bFROM\s+(?:(\w+)\.)?(\w+)(?:\s+(\w+))?/i);
+      if (fromMatch) {
+        const tableName = fromMatch[2].toUpperCase();
+        const tbl = tables.value.find(t => t.tableName.toUpperCase() === tableName);
+        if (tbl && !unionTableIds.value.includes(tbl.id)) {
+          unionTableIds.value.push(tbl.id);
+          await loadColumns(tbl.id);
+        }
+      }
+    }
+  }
+
   // Now that all table columns are loaded, auto-fill field aliases from MetaColumn
   syncFieldAliases();
 
@@ -341,7 +368,7 @@ function onFieldColumnChange(field: { alias: string; metaColumnId: number }, met
 }
 
 function getColumnOptions(forTableIds?: number[]) {
-  const ids = forTableIds ?? [form.mainTableId, ...form.joins.map(j => j.joinTableId)];
+  const ids = forTableIds ?? [form.mainTableId, ...form.joins.map(j => j.joinTableId), ...unionTableIds.value];
   const options: { label: string; value: number; table: string }[] = [];
   for (const tableId of ids) {
     const cols = tableColumns.value[tableId] || [];
@@ -435,6 +462,22 @@ onMounted(async () => {
     await loadColumns(res.data.mainTableId);
     for (const j of res.data.joins) {
       await loadColumns(j.joinTableId);
+    }
+    // UNION: load columns from non-primary branch tables for filter dropdowns
+    if (res.data.rawSql && /\bUNION\s+(?:ALL\s+)?SELECT\b/i.test(res.data.rawSql)) {
+      unionTableIds.value = [];
+      const unionParts = res.data.rawSql.split(/\bUNION\s+(?:ALL\s+)?(?=SELECT\b)/i);
+      for (let i = 1; i < unionParts.length; i++) {
+        const fromMatch = unionParts[i].match(/\bFROM\s+(?:(\w+)\.)?(\w+)(?:\s+(\w+))?/i);
+        if (fromMatch) {
+          const tableName = fromMatch[2].toUpperCase();
+          const tbl = tables.value.find(t => t.tableName.toUpperCase() === tableName);
+          if (tbl && !unionTableIds.value.includes(tbl.id)) {
+            unionTableIds.value.push(tbl.id);
+            await loadColumns(tbl.id);
+          }
+        }
+      }
     }
     await loadExistingConfig();
     // Collect all unique data source IDs used by main table + joins
