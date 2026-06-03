@@ -122,7 +122,8 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<DashboardCard>(e =>
         {
-            e.HasOne(d => d.QueryConfig).WithMany().HasForeignKey(d => d.QueryConfigId)
+            e.HasOne(d => d.QueryConfig).WithMany(q => q.DashboardCards)
+                .HasForeignKey(d => d.QueryConfigId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
     }

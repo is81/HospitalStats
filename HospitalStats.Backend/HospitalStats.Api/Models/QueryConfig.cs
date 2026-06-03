@@ -43,4 +43,5 @@ public class QueryConfig
     public List<QueryField> Fields { get; set; } = new();
     public List<QueryFilter> Filters { get; set; } = new();
     public List<QueryJoin> Joins { get; set; } = new();
+    public List<DashboardCard> DashboardCards { get; set; } = new();
 }

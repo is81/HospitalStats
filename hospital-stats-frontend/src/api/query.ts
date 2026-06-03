@@ -29,6 +29,7 @@ export interface QueryConfigItem {
   displayType: string;
   updatedAt: string;
   isEnabled: boolean;
+  dashboardCardCount: number;
 }
 
 export interface QueryFieldInfo {

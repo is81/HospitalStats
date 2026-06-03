@@ -150,7 +150,10 @@ public class QueryController : ControllerBase
     [HttpGet("configs")]
     public async Task<ActionResult<List<QueryConfigDto>>> GetConfigs([FromQuery] int? dsId)
     {
-        var query = _db.QueryConfigs.Include(q => q.MainTable).AsQueryable();
+        var query = _db.QueryConfigs
+            .Include(q => q.MainTable)
+            .Include(q => q.DashboardCards)
+            .AsQueryable();
         if (dsId.HasValue)
             query = query.Where(q => q.MainTable != null && q.MainTable.DataSourceId == dsId.Value);
 
@@ -163,7 +166,8 @@ public class QueryController : ControllerBase
             MainTableName = c.MainTable?.Alias ?? c.MainTable?.TableName,
             DisplayType = c.DisplayType,
             UpdatedAt = c.UpdatedAt,
-            IsEnabled = c.IsEnabled
+            IsEnabled = c.IsEnabled,
+            DashboardCardCount = c.DashboardCards.Count
         }).ToList();
     }
 

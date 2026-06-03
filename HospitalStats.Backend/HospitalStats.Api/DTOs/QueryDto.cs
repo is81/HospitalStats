@@ -51,6 +51,7 @@ public class QueryConfigDto
     public DateTime UpdatedAt { get; set; }
     public string? RawSql { get; set; }
     public string? OriginalSql { get; set; }
+    public int DashboardCardCount { get; set; }
     public List<QueryFieldDto> Fields { get; set; } = new();
     public List<QueryFilterDto> Filters { get; set; } = new();
     public List<QueryJoinDto> Joins { get; set; } = new();
