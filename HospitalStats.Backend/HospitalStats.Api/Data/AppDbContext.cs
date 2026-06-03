@@ -21,6 +21,7 @@ public class AppDbContext : DbContext
     public DbSet<RoleMenu> RoleMenus => Set<RoleMenu>();
     public DbSet<UserRole> UserRoles => Set<UserRole>();
     public DbSet<DashboardCard> DashboardCards => Set<DashboardCard>();
+    public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

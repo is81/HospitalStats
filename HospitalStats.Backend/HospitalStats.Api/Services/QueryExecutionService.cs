@@ -22,7 +22,7 @@ public class QueryExecutionService
     private readonly IMemoryCache _cache;
     private readonly ILogger<QueryExecutionService> _logger;
     private readonly IHttpContextAccessor _httpContextAccessor;
-    private readonly int _queryTimeoutSeconds;
+    private readonly SystemSettingsService _settingsService;
 
     private static readonly HashSet<string> _sqlKeywords = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -41,15 +41,14 @@ public class QueryExecutionService
 
     public QueryExecutionService(AppDbContext db, DataSourceService dsService,
         IMemoryCache cache, ILogger<QueryExecutionService> logger,
-        IHttpContextAccessor httpContextAccessor, IConfiguration config)
+        IHttpContextAccessor httpContextAccessor, SystemSettingsService settingsService, IConfiguration config)
     {
         _db = db;
         _dsService = dsService;
         _cache = cache;
         _logger = logger;
         _httpContextAccessor = httpContextAccessor;
-        var timeoutStr = config["QueryTimeoutSeconds"];
-        _queryTimeoutSeconds = int.TryParse(timeoutStr, out var t) ? t : 120;
+        _settingsService = settingsService;
     }
 
     public async Task<QueryResult> ExecuteAsync(int configId, Dictionary<string, string> filters,
@@ -132,9 +131,10 @@ public class QueryExecutionService
         }
 
         int total;
+        var queryTimeout = await _settingsService.GetIntAsync("QueryTimeoutSeconds", 120);
         try
         {
-            total = await conn.ExecuteScalarAsync<int>(new CommandDefinition(countSql, countDp, commandTimeout: _queryTimeoutSeconds));
+            total = await conn.ExecuteScalarAsync<int>(new CommandDefinition(countSql, countDp, commandTimeout: queryTimeout));
         }
         catch (OracleException ex)
         {
@@ -142,11 +142,19 @@ public class QueryExecutionService
                 $"Count query failed: {ex.Message}. SQL: {countSql}", ex);
         }
 
+        var maxRowCount = await _settingsService.GetIntAsync("MaxRowCount", 50000);
+        if (total > maxRowCount)
+        {
+            var wan = maxRowCount / 10000;
+            throw new InvalidOperationException(
+                $"结果超过{wan}万行，请调整日期范围、筛选条件，或联系管理员调整限制");
+        }
+
         // execute data
         IEnumerable<dynamic> rows;
         try
         {
-            rows = await conn.QueryAsync(new CommandDefinition(dataSql, allParams, commandTimeout: _queryTimeoutSeconds));
+            rows = await conn.QueryAsync(new CommandDefinition(dataSql, allParams, commandTimeout: queryTimeout));
         }
         catch (OracleException ex)
         {

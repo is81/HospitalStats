@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { queryApi, type QueryConfigDetail } from '../../api/query';
 import { executeApi, type QueryResult } from '../../api/execute';
 import * as echarts from 'echarts';
@@ -83,7 +83,12 @@ async function doQuery(p?: number) {
       setTimeout(renderChart, 100);
     }
   } catch (e: any) {
-    ElMessage.error(e.response?.data?.message || '查询失败');
+    const msg: string = e.response?.data?.message || '查询失败';
+    if (msg.includes('结果超过')) {
+      ElMessageBox.alert(msg, '提示', { confirmButtonText: '知道了', type: 'warning' });
+    } else {
+      ElMessage.error(msg);
+    }
   } finally {
     loading.value = false;
   }

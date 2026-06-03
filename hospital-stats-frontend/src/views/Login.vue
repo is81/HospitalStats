@@ -1,13 +1,40 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useAuthStore } from '../stores/auth';
 import { ElMessage } from 'element-plus';
+import api from '../api/index';
 
 const authStore = useAuthStore();
 const username = ref('');
 const password = ref('');
 const loading = ref(false);
 const showVersion = ref(false);
+
+// License activation
+const licensed = ref<boolean | null>(null);
+const machineCode = ref('');
+const activationCode = ref('');
+const activating = ref(false);
+
+async function checkLicense() {
+  try {
+    const res = await api.get('/license/status');
+    licensed.value = res.data.activated;
+    machineCode.value = res.data.machineCode;
+  } catch { licensed.value = false; }
+}
+
+async function handleActivate() {
+  if (!activationCode.value) { ElMessage.warning('请输入激活码'); return; }
+  activating.value = true;
+  try {
+    await api.post('/license/activate', { activationCode: activationCode.value });
+    ElMessage.success('激活成功，请登录');
+    licensed.value = true;
+  } catch (e: any) {
+    ElMessage.error(e.response?.data?.message || '激活失败');
+  } finally { activating.value = false; }
+}
 
 async function handleLogin() {
   if (!username.value || !password.value) {
@@ -24,6 +51,8 @@ async function handleLogin() {
     loading.value = false;
   }
 }
+
+onMounted(checkLicense);
 </script>
 
 <template>
@@ -36,7 +65,19 @@ async function handleLogin() {
           <p class="subtitle">Hospital Statistics Platform</p>
         </div>
       </div>
-      <el-form @submit.prevent="handleLogin" label-width="0">
+      <!-- Activation panel -->
+      <div v-if="licensed === false" class="activate-box">
+        <div class="activate-title">系统未激活</div>
+        <div class="activate-code">机器码：<code>{{ machineCode }}</code></div>
+        <el-input v-model="activationCode" placeholder="输入激活码" size="small"
+          style="margin: 8px 0" />
+        <el-button type="warning" size="small" :loading="activating"
+          @click="handleActivate" style="width:100%">
+          激 活
+        </el-button>
+      </div>
+
+      <el-form v-if="licensed !== false" @submit.prevent="handleLogin" label-width="0">
         <el-form-item>
           <el-input v-model="username" placeholder="用户名" size="large"
             autocomplete="username" />
@@ -133,6 +174,14 @@ async function handleLogin() {
   letter-spacing: 0.04em;
   text-align: center;
 }
+.activate-box {
+  background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px;
+  padding: 14px 16px; margin-bottom: 16px;
+}
+.activate-title { font-size: 14px; font-weight: 600; color: #dc2626; margin-bottom: 6px; }
+.activate-code { font-size: 12px; color: #64748b; margin-bottom: 4px; }
+.activate-code code { background: #f1f5f9; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+
 .subtitle {
   color: #94a3b8;
   font-size: 11px;

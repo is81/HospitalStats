@@ -100,6 +100,7 @@ async function handleChangePassword() {
           <el-menu-item index="/dashboard/config">仪表盘配置</el-menu-item>
           <el-menu-item index="/admin/users">用户管理</el-menu-item>
           <el-menu-item index="/admin/roles">角色管理</el-menu-item>
+          <el-menu-item index="/admin/settings">配置管理</el-menu-item>
         </el-sub-menu>
       </el-menu>
       <div class="sidebar-footer">

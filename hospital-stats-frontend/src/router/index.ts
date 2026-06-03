@@ -90,6 +90,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('../views/admin/Roles.vue'),
         meta: { title: '角色管理', admin: true },
       },
+      {
+        path: 'admin/settings',
+        name: 'AdminSettings',
+        component: () => import('../views/admin/Settings.vue'),
+        meta: { title: '配置管理', admin: true },
+      },
     ],
   },
 ];

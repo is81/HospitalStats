@@ -4,6 +4,7 @@ using HospitalStats.Api.Models;
 using HospitalStats.Api.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -730,10 +731,14 @@ public class QueryExecutionServiceTests
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { ["QueryTimeoutSeconds"] = "120" })
             .Build();
+        var mockSettings = new Mock<SystemSettingsService>(null as IServiceScopeFactory);
+        mockSettings.Setup(s => s.GetIntAsync(It.IsAny<string>(), It.IsAny<int>()))
+            .ReturnsAsync((string key, int def) => key == "QueryTimeoutSeconds" ? 120 : 50000);
         return new QueryExecutionService(
             null!, null!, null!,
             mockLogger.Object,
             httpContextAccessor ?? CreateHttpContextAccessor(),
+            mockSettings.Object,
             config);
     }
 

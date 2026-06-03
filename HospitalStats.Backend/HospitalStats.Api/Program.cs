@@ -79,6 +79,8 @@ try
     builder.Services.AddScoped<MetaScannerService>();
     builder.Services.AddScoped<QueryExecutionService>();
     builder.Services.AddScoped<SqlParsingService>();
+    builder.Services.AddSingleton<SystemSettingsService>();
+    builder.Services.AddSingleton<LicenseService>();
     builder.Services.AddMemoryCache();
     builder.Services.AddHostedService<ConfigDbBackupService>();
 
@@ -156,10 +158,17 @@ try
             });
             db.SaveChanges();
         }
+
+        // Seed default system settings
+        SeedIfMissing(db, "QueryTimeoutSeconds", "120");
+        SeedIfMissing(db, "MaxRowCount", "50000");
     }
 
     // Global exception handling
     app.UseMiddleware<ExceptionMiddleware>();
+
+    // License check (allow login + activation, block all other API if not activated)
+    app.UseMiddleware<LicenseMiddleware>();
 
     // Request logging
     app.UseSerilogRequestLogging(options =>
@@ -207,6 +216,8 @@ static void MigrateSchema(HospitalStats.Api.Data.AppDbContext db)
     TryAddColumn(db, "QueryJoins", "LeftDateTrunc", "INTEGER NOT NULL DEFAULT 0");
     // QueryConfigs.OriginalSql — added 2026-05-29
     TryAddColumn(db, "QueryConfigs", "OriginalSql", "TEXT");
+    // SystemSettings — added 2026-06-03
+    TryAddTable(db, "SystemSettings", "CREATE TABLE IF NOT EXISTS SystemSettings (Key TEXT PRIMARY KEY, Value TEXT NOT NULL DEFAULT '')");
 }
 
 static void TryAddColumn(HospitalStats.Api.Data.AppDbContext db, string table, string column, string type)
@@ -220,5 +231,32 @@ static void TryAddColumn(HospitalStats.Api.Data.AppDbContext db, string table, s
     catch
     {
         // Column already exists, or table doesn't exist yet (fresh DB handled by EnsureCreated)
+    }
+}
+
+static void TryAddTable(HospitalStats.Api.Data.AppDbContext db, string name, string sql)
+{
+    try
+    {
+        db.Database.ExecuteSqlRaw(sql);
+        Log.Information("Schema migration: table {Table} created", name);
+    }
+    catch
+    {
+        // Already exists
+    }
+}
+
+static void SeedIfMissing(AppDbContext db, string key, string value)
+{
+    try
+    {
+        if (!db.SystemSettings.Any(s => s.Key == key))
+            db.SystemSettings.Add(new HospitalStats.Api.Models.SystemSetting { Key = key, Value = value });
+        db.SaveChanges();
+    }
+    catch
+    {
+        // Table may not exist yet on very first run before migration
     }
 }

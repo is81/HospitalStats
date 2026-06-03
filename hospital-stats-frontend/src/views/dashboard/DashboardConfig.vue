@@ -67,6 +67,12 @@ async function deleteCard(id: number) {
   } catch { /* cancelled */ }
 }
 
+function cardColor(card: DashboardCardData) { return card.color ?? '#00603D'; }
+function getDisplayLabel(type: string) {
+  const map: Record<string, string> = { number: '数值', bar: '柱状图', line: '折线图', pie: '饼图', table: '表格' };
+  return map[type] || type;
+}
+
 const iconOptions = [
   { value: 'money', label: '💰 金额' },
   { value: 'people', label: '👥 人员' },
@@ -97,8 +103,12 @@ onMounted(loadData);
               <el-button size="small" text type="danger" @click="deleteCard(card.id)">删除</el-button>
             </span>
           </div>
-          <div style="font-size:12px; color:#909399">
-            {{ card.queryConfigName }} | {{ card.displayType }} | 宽度:{{ card.width }}/24
+          <div style="font-size:12px; color:#909399; display:flex; align-items:center; gap:8px; flex-wrap:wrap">
+            <span>{{ card.queryConfigName }} | {{ getDisplayLabel(card.displayType) }} | 宽度:{{ card.width }}/24</span>
+            <span :style="{ display:'inline-block',width:'12px',height:'12px',borderRadius:'3px',background:cardColor(card),flexShrink:0 }" :title="cardColor(card)" />
+            <el-tag :type="card.isEnabled ? 'success' : 'info'" size="small">
+              {{ card.isEnabled ? '启用中' : '停用' }}
+            </el-tag>
           </div>
         </div>
       </el-col>
