@@ -104,4 +104,4 @@ cd deploy/publish && dotnet HospitalStats.Api.dll --urls http://0.0.0.0:5000
 
 ## 许可证
 
-待定
+MIT License
