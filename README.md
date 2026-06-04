@@ -104,3 +104,7 @@ cd deploy/publish && dotnet HospitalStats.Api.dll --urls http://0.0.0.0:5000
 ## 许可证
 
 MIT License
+
+## 致谢
+
+本项目由 [Claude Code](https://claude.ai/code)（Anthropic）和 DeepSeek 大模型辅助开发。

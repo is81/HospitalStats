@@ -104,3 +104,7 @@ Default admin account `admin` with a randomly generated password printed to cons
 ## License
 
 MIT License
+
+## Acknowledgments
+
+This project was developed with the assistance of [Claude Code](https://claude.ai/code) (by Anthropic) and the DeepSeek large language model.
