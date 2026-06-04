@@ -101,7 +101,7 @@ if ($svc.Status -eq "Running") {
     }
     try {
         $response = Invoke-WebRequest -Uri "http://localhost:5000/api/auth/login" -Method POST `
-            -Body '{"username":"admin","password":"admin123"}' -ContentType "application/json" `
+            -Body '{"username":"admin","password":"<随机>"}' -ContentType "application/json" `
             -UseBasicParsing -TimeoutSec 10
         Write-Host "  登录接口: HTTP $($response.StatusCode) OK" -ForegroundColor Green
     } catch {
@@ -124,7 +124,8 @@ Write-Host "======================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  访问地址: http://$(Get-NetIPAddress -AddressFamily IPv4 | Where-Object InterfaceAlias -notmatch 'Loopback|Virtual' | Select -First 1 -ExpandProperty IPAddress):5000" -ForegroundColor Green
 Write-Host ""
-Write-Host "  管理员: admin / admin123  (首次登录务必修改！)" -ForegroundColor Yellow
+# 首次启动密码随机生成，查看 stdout 日志获取
+Write-Host "  管理员: admin / <随机密码，查看 stdout 日志>  (首次登录务必修改！)" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "--- 管理命令 ---" -ForegroundColor Cyan
 Write-Host "  查看状态:  Get-Service $ServiceName"

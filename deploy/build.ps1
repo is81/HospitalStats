@@ -22,6 +22,9 @@ Write-Host "  加密密钥: $encKey"
 
 # 生成 appsettings.Production.json
 $prodSettings = @{
+    ConnectionStrings = @{
+        ConfigDb = "Data Source=$AppDir\config.db"
+    }
     Urls = "http://0.0.0.0:5000"
     Jwt = @{
         Key = $jwtKey
@@ -56,11 +59,7 @@ Set-Location ..\HospitalStats.Backend\HospitalStats.Api
 dotnet publish -c Release -o ..\..\deploy\publish --self-contained false
 Set-Location ..\..\deploy
 
-Write-Host "`n=== 4/4 复制配置文件 ===" -ForegroundColor Cyan
-Copy-Item -Force ..\HospitalStats.Backend\HospitalStats.Api\config.db publish\config.db
-Copy-Item -Force ..\HospitalStats.Backend\HospitalStats.Api\appsettings.json publish\appsettings.json
-
-# 复制服务器安装脚本
+Write-Host "`n=== 4/4 复制安装脚本 ===" -ForegroundColor Cyan
 Copy-Item -Force install.ps1 publish\
 
 Write-Host "`n=== 完成 ===" -ForegroundColor Green

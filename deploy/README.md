@@ -20,7 +20,7 @@ cd F:\HospitalStats\deploy
 - 生成随机 JWT 和加密密钥
 - 构建前端（Vue → static files）
 - 发布后端（.NET → publish 文件夹）
-- 复制 config.db 到发布包
+- 复制安装脚本到发布包
 - 输出: `.\publish\` 文件夹
 
 ## 第二步：复制到服务器
@@ -32,10 +32,9 @@ C:\HospitalStats\
 ├── HospitalStats.Api.exe       ← 应用入口
 ├── HospitalStats.Api.dll
 ├── *.dll                       ← .NET 依赖
-├── config.db                   ← SQLite 配置库
-├── appsettings.json            ← 基础配置
 ├── appsettings.Production.json ← 生产密钥（自动生成）
 ├── wwwroot\                    ← 前端静态文件
+├── config.db                   ← 首次运行自动创建
 ├── logs\                       ← 日志（自动创建）
 ├── backups\                    ← 数据库备份（自动创建）
 └── install.ps1                 ← 安装脚本
@@ -63,7 +62,7 @@ C:\HospitalStats\
 
 浏览器打开 `http://服务器IP:5000`
 
-- 管理员登录: admin / admin123
+- 管理员登录: admin / 随机密码（首次启动打印到控制台或 stdout 日志）
 - **首次登录后务必修改管理员密码！**
 
 ## 管理运维
