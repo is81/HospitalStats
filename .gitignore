@@ -36,6 +36,9 @@
 find-skills/
 CLAUDE.md
 
+# Docs (local only)
+docs/
+
 # OS
 .DS_Store
 Thumbs.db
