@@ -12,7 +12,7 @@
 
 ```powershell
 # Run on dev machine
-cd F:\HospitalStats\deploy
+cd <your-project-path>/deploy
 .\build.ps1
 ```
 
@@ -25,7 +25,7 @@ The script automatically:
 
 ## Step 2: Copy to Server
 
-Copy the entire `F:\HospitalStats\deploy\publish\` folder to the server:
+Copy the entire `deploy\publish\` folder to the server:
 
 ```
 C:\HospitalStats\

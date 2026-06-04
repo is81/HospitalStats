@@ -12,7 +12,7 @@
 
 ```powershell
 # 在开发机上执行
-cd F:\HospitalStats\deploy
+cd <your-project-path>/deploy
 .\build.ps1
 ```
 
@@ -25,7 +25,7 @@ cd F:\HospitalStats\deploy
 
 ## 第二步：复制到服务器
 
-将 `F:\HospitalStats\deploy\publish\` 整个文件夹复制到服务器：
+将 `deploy\publish\` 整个文件夹复制到服务器：
 
 ```
 C:\HospitalStats\
