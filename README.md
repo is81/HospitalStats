@@ -40,7 +40,7 @@ HospitalStats/
 │       └── styles/                # 主题 CSS 变量
 ├── HospitalStats.Backend/
 │   ├── HospitalStats.Api/         # .NET 8 Web API
-│   │   ├── Controllers/           # 7 个控制器
+│   │   ├── Controllers/           # 8 个控制器
 │   │   ├── Services/              # 核心服务
 │   │   ├── Models/                # 实体模型
 │   │   ├── DTOs/                  # 请求/响应 DTO

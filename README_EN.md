@@ -40,7 +40,7 @@ HospitalStats/
 │       └── styles/                # Theme CSS variables
 ├── HospitalStats.Backend/
 │   ├── HospitalStats.Api/         # .NET 8 Web API
-│   │   ├── Controllers/           # 7 controllers
+│   │   ├── Controllers/           # 8 controllers
 │   │   ├── Services/              # Core service layer
 │   │   ├── Models/                # Entity models
 │   │   ├── DTOs/                  # Request/response DTOs
