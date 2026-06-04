@@ -32,24 +32,27 @@
 HospitalStats/
 ├── hospital-stats-frontend/      # Vue 3 + Vite 前端
 │   └── src/
-│       ├── views/                 # 页面组件
+│       ├── views/                 # 页面组件（admin/dashboard/datasources/meta/query）
+│       ├── components/            # 公共组件
 │       ├── api/                   # Axios API 封装
 │       ├── stores/                # Pinia 状态管理
 │       ├── layout/                # 布局组件
 │       ├── router/                # 路由配置
+│       ├── assets/                # 静态资源
 │       └── styles/                # 主题 CSS 变量
 ├── HospitalStats.Backend/
 │   ├── HospitalStats.Api/         # .NET 8 Web API
 │   │   ├── Controllers/           # 8 个控制器
 │   │   ├── Services/              # 核心服务
-│   │   ├── Models/                # 实体模型
+│   │   ├── Models/                # 实体模型（13 个）
 │   │   ├── DTOs/                  # 请求/响应 DTO
-│   │   ├── Data/                  # EF Core DbContext
+│   │   ├── Data/                  # EF Core DbContext（15 个 DbSet）
 │   │   └── Middleware/            # 异常/审计中间件
-│   └── HospitalStats.Api.Tests/   # xUnit 测试
-├── docs/                          # 文档
-├── deploy/publish/                # 发布输出
-└── CLAUDE.md                      # AI 辅助开发指南
+│   └── HospitalStats.Api.Tests/   # xUnit 测试（184 个）
+├── deploy/                        # 部署脚本和发布输出
+├── docs/                          # 本地文档（不上传）
+├── LICENSE                        # MIT 许可证
+└── README.md
 ```
 
 ## 快速开始

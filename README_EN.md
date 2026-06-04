@@ -32,24 +32,27 @@ A data query and statistics platform for hospital HIS systems. Supports Oracle 1
 HospitalStats/
 ├── hospital-stats-frontend/      # Vue 3 + Vite frontend
 │   └── src/
-│       ├── views/                 # Page components
+│       ├── views/                 # Page components (admin/dashboard/datasources/meta/query)
+│       ├── components/            # Shared components
 │       ├── api/                   # Axios API wrappers
 │       ├── stores/                # Pinia state management
 │       ├── layout/                # Layout components
 │       ├── router/                # Route definitions
+│       ├── assets/                # Static assets
 │       └── styles/                # Theme CSS variables
 ├── HospitalStats.Backend/
 │   ├── HospitalStats.Api/         # .NET 8 Web API
 │   │   ├── Controllers/           # 8 controllers
 │   │   ├── Services/              # Core service layer
-│   │   ├── Models/                # Entity models
+│   │   ├── Models/                # Entity models (13)
 │   │   ├── DTOs/                  # Request/response DTOs
-│   │   ├── Data/                  # EF Core DbContext
+│   │   ├── Data/                  # EF Core DbContext (15 DbSets)
 │   │   └── Middleware/            # Exception / audit
-│   └── HospitalStats.Api.Tests/   # xUnit test suite
-├── docs/                          # Documentation
-├── deploy/publish/                # Publish output
-└── CLAUDE.md                      # AI-assisted development guide
+│   └── HospitalStats.Api.Tests/   # xUnit test suite (184 tests)
+├── deploy/                        # Deployment scripts & publish output
+├── docs/                          # Local documentation (not uploaded)
+├── LICENSE                        # MIT License
+└── README.md
 ```
 
 ## Quick Start
