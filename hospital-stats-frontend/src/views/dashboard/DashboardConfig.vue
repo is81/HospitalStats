@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import draggable from 'vuedraggable';
 import { dashboardApi, type DashboardCardData } from '../../api/dashboard';
 import { queryApi, type QueryConfigItem } from '../../api/query';
 
@@ -67,6 +68,16 @@ async function deleteCard(id: number) {
   } catch { /* cancelled */ }
 }
 
+async function onDragEnd() {
+  const ids = cards.value.map(c => c.id);
+  try {
+    await dashboardApi.updateOrder(ids);
+    ElMessage.success('排序已更新');
+  } catch {
+    ElMessage.error('排序保存失败');
+  }
+}
+
 function cardColor(card: DashboardCardData) { return card.color ?? '#00603D'; }
 function getDisplayLabel(type: string) {
   const map: Record<string, string> = { number: '数值', bar: '柱状图', line: '折线图', pie: '饼图', table: '表格' };
@@ -93,11 +104,12 @@ onMounted(loadData);
       <el-button type="primary" @click="openDialog()">新增卡片</el-button>
     </div>
 
-    <el-row :gutter="12">
-      <el-col v-for="card in cards" :key="card.id" :span="6" style="margin-bottom:12px">
+    <draggable v-model="cards" item-key="id" handle=".drag-handle" @end="onDragEnd" class="config-grid">
+      <template #item="{ element: card }">
         <div class="config-card">
           <div class="config-card-header">
-            <strong>{{ card.title }}</strong>
+            <span class="drag-handle" title="拖拽排序">⠿</span>
+            <strong style="flex:1">{{ card.title }}</strong>
             <span>
               <el-button size="small" text @click="openDialog(card)">编辑</el-button>
               <el-button size="small" text type="danger" @click="deleteCard(card.id)">删除</el-button>
@@ -111,8 +123,8 @@ onMounted(loadData);
             </el-tag>
           </div>
         </div>
-      </el-col>
-    </el-row>
+      </template>
+    </draggable>
 
     <el-dialog v-model="dialogVisible" :title="editingCard ? '编辑卡片' : '新增卡片'" width="500px">
       <el-form :model="form" label-width="90px">
@@ -168,6 +180,11 @@ onMounted(loadData);
 </template>
 
 <style scoped>
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
 .config-card {
   background: white; padding: 12px; border-radius: 4px;
   border: 1px solid #ebeef5;
@@ -176,4 +193,8 @@ onMounted(loadData);
   display: flex; justify-content: space-between; align-items: center;
   margin-bottom: 4px;
 }
+.drag-handle {
+  cursor: grab; color: #c0c4cc; font-size: 16px; margin-right: 6px; user-select: none;
+}
+.drag-handle:active { cursor: grabbing; }
 </style>

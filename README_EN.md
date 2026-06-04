@@ -17,7 +17,7 @@ A data query and statistics platform for hospital HIS systems. Supports Oracle 1
 - **SQL Import & Parsing**: Paste Oracle SQL to auto-extract columns, filters, and JOINs. Supports UNION queries.
 - **Dynamic Querying**: 12 filter operators (=, ≠, ＞, ＜, LIKE, NOT LIKE, IN, NOT IN, BETWEEN, etc.) injected per UNION branch.
 - **US7ASCII Support**: Hex-encode string columns for transport-layer safety, Chinese alias rewriting (`_cN`/`_cxN`) to prevent ORA-00918, three-tier column type matching.
-- **Dashboard**: 8-card grid layout, number/bar/line/pie charts, date range filter, drag-to-configure.
+- **Dashboard**: Flexible grid card layout, number/bar/line/pie charts, date range filter, drag-to-reorder.
 - **RBAC**: Role-based menu access, context filters (auto-inject department/user from JWT).
 - **Data Sources**: Multi-Oracle connection management, AES-CBC encrypted connection strings, live connection test.
 - **Metadata Scanner**: Automatic Oracle schema discovery, table/column browsing, Chinese alias editing.
