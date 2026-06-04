@@ -33,6 +33,8 @@
 
 # Claude Code
 .claude/
+find-skills/
+CLAUDE.md
 
 # OS
 .DS_Store
