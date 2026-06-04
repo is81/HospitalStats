@@ -34,6 +34,20 @@
     <Content Remove="config.db*" />
     <Content Remove="*.bak" />
     <Content Remove="*.old" />
+    <None Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Content Update="wwwroot\logo.png" CopyToPublishDirectory="Never" />
+    <Content Update="wwwroot\favicon.svg" CopyToPublishDirectory="Never" />
+    <Content Update="backups\**" CopyToPublishDirectory="Never" />
+    <Content Update="logs\**" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
+  <!-- 删除发布目录中不需要的文件和空目录 -->
+  <Target Name="CleanPublishDirs" AfterTargets="Publish">
+    <Delete Files="$(PublishDir)appsettings.Development.json" ContinueOnError="true" />
+    <RemoveDir Directories="$(PublishDir)backups;$(PublishDir)logs" ContinueOnError="true" />
+  </Target>
 
 </Project>

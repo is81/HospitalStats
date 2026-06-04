@@ -93,7 +93,7 @@ const iconOptions = [
   { value: 'calendar', label: '📅 日历' },
   { value: 'doc', label: '📋 文档' },
 ];
-const unitOptions = ['人次', '元', '张', '%', '例', '天', '次', '件'];
+const unitOptions = ['人次', '人', '元', '张', '%', '例', '天', '次', '件'];
 
 onMounted(loadData);
 </script>

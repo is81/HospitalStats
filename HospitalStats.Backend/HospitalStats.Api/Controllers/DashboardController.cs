@@ -63,7 +63,7 @@ public class DashboardController : ControllerBase
                 var configFilters = card.QueryConfig?.Filters ?? new List<QueryFilter>();
                 _logger.LogInformation("Dashboard card '{Title}': dateFrom={From} dateTo={To} filters={Count}",
                     card.Title, dateFrom, dateTo, configFilters.Count);
-                var dateCols = new[] { "VISIT_DATE", "BILLING_DATE_TIME", "DISCHARGE_DATE_TIME" };
+                var dateCols = new[] { "VISIT_DATE", "BILLING_DATE_TIME", "DISCHARGE_DATE_TIME", "PRESC_DATE" };
                 if (!string.IsNullOrEmpty(dateFrom))
                 {
                     var gteFilter = configFilters.FirstOrDefault(f =>
