@@ -173,36 +173,29 @@ public class DataSourceService
         return result;
     }
 
-    private string Encrypt(string plainText)
+    internal static string EncryptWithKey(string plainText, string key)
     {
-        var key = ResolveEncryptionKey();
         using var aes = Aes.Create();
         aes.Key = SHA256.HashData(Encoding.UTF8.GetBytes(key));
-        aes.GenerateIV(); // Random IV per encryption
+        aes.GenerateIV();
         using var encryptor = aes.CreateEncryptor();
         var plainBytes = Encoding.UTF8.GetBytes(plainText);
         var cipherBytes = encryptor.TransformFinalBlock(plainBytes, 0, plainBytes.Length);
-        // Prepend IV to ciphertext: IV (16) + ciphertext
         var result = new byte[aes.IV.Length + cipherBytes.Length];
         Buffer.BlockCopy(aes.IV, 0, result, 0, aes.IV.Length);
         Buffer.BlockCopy(cipherBytes, 0, result, aes.IV.Length, cipherBytes.Length);
         return Convert.ToBase64String(result);
     }
 
-    public string Decrypt(string cipherText)
+    internal static string DecryptWithKey(string cipherText, string key)
     {
-        var key = ResolveEncryptionKey();
         var raw = Convert.FromBase64String(cipherText);
-
-        // Try old format first (zero IV) — all existing production data uses this.
         try
         {
             var oldResult = DecryptWithIV(raw, key, new byte[16]);
             if (IsValidConnString(oldResult)) return oldResult;
         }
-        catch { /* not old format */ }
-
-        // Try new format (IV prepended to ciphertext).
+        catch { }
         if (raw.Length >= 32)
         {
             try
@@ -210,11 +203,19 @@ public class DataSourceService
                 var newResult = DecryptWithIV(raw, key, raw[..16]);
                 if (IsValidConnString(newResult)) return newResult;
             }
-            catch { /* not new format either */ }
+            catch { }
         }
-
-        // Last resort: return old format result (may be garbage, but caller handles)
         return DecryptWithIV(raw, key, new byte[16]);
+    }
+
+    private string Encrypt(string plainText)
+    {
+        return EncryptWithKey(plainText, ResolveEncryptionKey());
+    }
+
+    public string Decrypt(string cipherText)
+    {
+        return DecryptWithKey(cipherText, ResolveEncryptionKey());
     }
 
     private static readonly string[] _oracleConnKeys =
@@ -222,19 +223,16 @@ public class DataSourceService
          "Min Pool Size", "Max Pool Size", "Enlist", "Load Balancing",
          "HA Events", "Statement Cache Size", "Self Tuning"];
 
-    private static bool IsValidConnString(string? s)
+    internal static bool IsValidConnString(string? s)
     {
         if (string.IsNullOrEmpty(s)) return false;
-        // Garbage from wrong decryption typically has non-ASCII or control chars.
         if (s.Any(c => (c < 0x20 || c > 0x7E) && c != '\r' && c != '\n' && c != '\t'))
             return false;
-        // Must contain at least one recognizable Oracle connection string keyword.
         return _oracleConnKeys.Any(k => s.Contains(k, StringComparison.OrdinalIgnoreCase));
     }
 
     private static string DecryptWithIV(byte[] raw, string key, byte[] iv)
     {
-        // When iv is new-style (non-zero), raw = IV prefix + ciphertext
         var actualCipher = iv.SequenceEqual(new byte[16]) ? raw : raw[16..];
         using var aes = Aes.Create();
         aes.Key = SHA256.HashData(Encoding.UTF8.GetBytes(key));
