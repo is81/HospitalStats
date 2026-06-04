@@ -65,13 +65,14 @@ async function handleLogin() {
         <div class="version-badge">v2.0</div>
         <div class="version-date">2026-06</div>
         <ul>
-          <li>UNION 复杂查询全链路（导入→分支筛选注入→中文别名安全化→hex编码）</li>
-          <li>Oracle US7ASCII 字符集完整适配（列数据/标识符/行内字面量三层防护）</li>
-          <li>筛选条件按 UNION 分支独立注入</li>
-          <li>仪表盘日期筛选栏 + 操作符智能匹配</li>
-          <li>基于角色的菜单权限控制</li>
-          <li>IN 多值参数独立绑定</li>
-          <li>浏览器兼容（IE 2018+ polyfills）</li>
+          <li>开源（MIT）+ 授权模块移除</li>
+          <li>系统配置管理（超时、行数限制、仪表盘参数在线修改）</li>
+          <li>审计日志（操作记录到 logs/audit-{date}.log）</li>
+          <li>仪表盘弹性网格 + 拖拽排序 + 日期控件联动 + 全局可配</li>
+          <li>查询配置启用/禁用</li>
+          <li>菜单禁用灰显（保留入口但不允许查询）</li>
+          <li>测试覆盖 184 个（DataSourceService + SystemSettingsService）</li>
+          <li>部署脚本完善（config.db 保护、logo 排除、临时目录清理）</li>
         </ul>
       </div>
       <div class="version-block">
@@ -79,13 +80,15 @@ async function handleLogin() {
         <div class="version-date">2026-05</div>
         <ul>
           <li>基础查询平台（Vue 3 + .NET 8 + Oracle 10g/11g）</li>
-          <li>JWT 认证 + BCrypt 密码哈希</li>
-          <li>数据源管理（AES-CBC 加密连接串）</li>
+          <li>UNION 复杂查询全链路（导入→分支筛选注入→中文别名安全化→hex 编码）</li>
+          <li>Oracle US7ASCII 字符集完整适配（三层防护）</li>
+          <li>JWT 认证 + BCrypt 密码哈希 + RBAC 权限</li>
+          <li>数据源管理（AES-CBC 加密连接串 + 在线测试）</li>
           <li>元数据扫描（Oracle Schema 自动发现）</li>
-          <li>仪表盘 8 卡片 + ECharts 图表</li>
+          <li>仪表盘卡片 + ECharts 图表（数值/柱状图/折线图/饼图）</li>
           <li>查询结果 Excel 导出</li>
           <li>SQLite 配置库自动备份</li>
-          <li>12 种筛选操作符 + RawSql 导入解析</li>
+          <li>14 种筛选操作符 + RawSql 导入解析</li>
           <li>上下文筛选器（DeptName / UserId）</li>
         </ul>
       </div>

@@ -15,12 +15,15 @@ public class DashboardController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly QueryExecutionService _executor;
+    private readonly SystemSettingsService _settings;
     private readonly ILogger<DashboardController> _logger;
 
-    public DashboardController(AppDbContext db, QueryExecutionService executor, ILogger<DashboardController> logger)
+    public DashboardController(AppDbContext db, QueryExecutionService executor,
+        SystemSettingsService settings, ILogger<DashboardController> logger)
     {
         _db = db;
         _executor = executor;
+        _settings = settings;
         _logger = logger;
     }
 
@@ -63,7 +66,10 @@ public class DashboardController : ControllerBase
                 var configFilters = card.QueryConfig?.Filters ?? new List<QueryFilter>();
                 _logger.LogInformation("Dashboard card '{Title}': dateFrom={From} dateTo={To} filters={Count}",
                     card.Title, dateFrom, dateTo, configFilters.Count);
-                var dateCols = new[] { "VISIT_DATE", "BILLING_DATE_TIME", "DISCHARGE_DATE_TIME", "PRESC_DATE" };
+                var dateColsStr = await _settings.GetAsync("DashboardDateColumns",
+                    "VISIT_DATE,BILLING_DATE_TIME,DISCHARGE_DATE_TIME,PRESC_DATE");
+                var dateCols = dateColsStr.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(s => s.Trim()).ToArray();
                 if (!string.IsNullOrEmpty(dateFrom))
                 {
                     var gteFilter = configFilters.FirstOrDefault(f =>

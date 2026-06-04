@@ -2,11 +2,14 @@
 import { ref, onMounted, onUnmounted, nextTick } from 'vue';
 import { ElMessageBox } from 'element-plus';
 import { dashboardApi, type DashboardCardData, type DashboardFilter } from '../../api/dashboard';
+import { settingsApi } from '../../api/settings';
 import * as echarts from 'echarts';
+
+const defaultDays = ref(1);
 
 function defaultDateFrom() {
   const d = new Date();
-  d.setDate(d.getDate() - 1);
+  d.setDate(d.getDate() - defaultDays.value);
   return d.toISOString().slice(0, 10);
 }
 function defaultDateTo() {
@@ -168,7 +171,11 @@ function getIcon(icon: string | null) {
   return map[icon || ''] || '📈';
 }
 
-onMounted(() => {
+onMounted(async () => {
+  try {
+    const res = await settingsApi.getAll();
+    defaultDays.value = Number(res.data.DashboardDefaultDays || '1');
+  } catch { /* use default */ }
   loadDashboard();
   window.addEventListener('resize', onWindowResize);
 });
@@ -185,28 +192,28 @@ onUnmounted(() => {
 <template>
   <div>
     <div style="margin-bottom: 12px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap">
-      <span style="font-size: 18px; font-weight: 600; margin-right: 16px">仪表盘</span>
-      <span style="display: inline-flex; gap: 4px; align-items: center">
-        <el-date-picker
-          v-model="filters.dateFrom"
-          type="date"
-          placeholder="开始日期"
-          value-format="YYYY-MM-DD"
-          size="small"
-          style="width: 140px"
-          @change="onFilterChange"
+      <span style="font-size: 18px; font-weight: 600">仪表盘</span>
+      <span style="font-size: 12px; color: #909399">默认显示前 {{ defaultDays }} 天，查更多请修改起止日期</span>
+      <span style="font-size: 13px; color: #606266; margin-left: 4px">开始日期</span>
+      <el-date-picker
+        v-model="filters.dateFrom"
+        type="date"
+        placeholder="选择日期"
+        value-format="YYYY-MM-DD"
+        size="small"
+        style="width: 130px"
+        @change="onFilterChange"
+      />
+      <span style="font-size: 13px; color: #606266; margin-left: 4px">结束日期</span>
+      <el-date-picker
+        v-model="filters.dateTo"
+        type="date"
+        placeholder="选择日期"
+        value-format="YYYY-MM-DD"
+        size="small"
+        style="width: 130px"
+        @change="onFilterChange"
         />
-        <span style="color: #909399">—</span>
-        <el-date-picker
-          v-model="filters.dateTo"
-          type="date"
-          placeholder="结束日期"
-          value-format="YYYY-MM-DD"
-          size="small"
-          style="width: 140px"
-          @change="onFilterChange"
-        />
-      </span>
       <el-button-group size="small">
         <el-button :type="activePreset() === 1 ? 'primary' : 'default'" @click="quickDate(1)">近1月</el-button>
         <el-button :type="activePreset() === 2 ? 'primary' : 'default'" @click="quickDate(2)">近2月</el-button>
