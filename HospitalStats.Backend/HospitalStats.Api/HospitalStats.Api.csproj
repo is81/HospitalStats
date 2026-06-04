@@ -27,10 +27,13 @@
     <InternalsVisibleTo Include="HospitalStats.Api.Tests" />
   </ItemGroup>
 
-  <!-- 发布时不带 appsettings 配置，避免覆盖生产服务器上的实际配置 -->
+  <!-- 发布时不带本地配置和数据库，避免覆盖生产服务器上的实际文件 -->
   <ItemGroup>
     <Content Remove="appsettings*.json" />
     <Content Remove="appsettings.*.json" />
+    <Content Remove="config.db*" />
+    <Content Remove="*.bak" />
+    <Content Remove="*.old" />
   </ItemGroup>
 
 </Project>

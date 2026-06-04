@@ -12,8 +12,13 @@
 
 # SQLite config database (contains user credentials & encrypted connection strings)
 **/config.db
+**/config*.db.bak*
+**/config*_test.db
 **/*.db-shm
 **/*.db-wal
+
+# Temp SQL files
+**/*Temp*.sql
 
 # Logs & backups
 **/logs/
