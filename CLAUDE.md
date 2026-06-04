@@ -67,26 +67,27 @@ dotnet test
 
 ### 双数据库设计
 
-- **SQLite** (`config.db`，位于 API 项目根目录)：存储所有配置——用户、角色、数据源（连接串加密存储）、扫描的元数据（MetaTable/MetaColumn）、查询配置、菜单。默认管理员 `admin`/`admin123`，由 `Program.cs` 种子逻辑创建。使用 `EnsureCreated()` 而非 Migration，新增字段需手动 `ALTER TABLE`。
+- **SQLite** (`config.db`，位于 API 项目根目录)：存储所有配置——用户、角色、数据源（连接串加密存储）、扫描的元数据（MetaTable/MetaColumn）、查询配置、菜单。默认管理员 `admin`，密码随机生成，首次启动时打印到控制台。由 `Program.cs` 种子逻辑创建。使用 `EnsureCreated()` 而非 Migration，新增字段需手动 `ALTER TABLE`。
 - **Oracle**：实际的 HIS 数据库。通过 Dapper + `Oracle.ManagedDataAccess.Core` 直接执行查询。兼容 Oracle 10g，必须使用 `ROWNUM` 三层嵌套子查询分页（不支持 `OFFSET/FETCH`），日期参数用 `TO_DATE()`。
 
 ### 后端结构
 
-- `Controllers/` — 7 个控制器：
-  - `AuthController` — 登录获取 JWT Token
-  - `AdminController` — 用户/角色 CRUD
+- `Controllers/` — 8 个控制器：
+  - `AuthController` — 登录 / 修改密码 / JWT Token 签发
+  - `AdminController` — 用户/角色 CRUD / 科室选项
   - `DataSourcesController` — 数据源 CRUD + 连接测试
   - `MetaController` — 扫描的元数据表/字段浏览
   - `QueryController` — 菜单树 + 查询配置 CRUD + SQL 解析
   - `QueryExecuteController` — 执行查询 + 导出 Excel
   - `DashboardController` — 仪表盘卡片配置
+  - `SettingsController` — 系统设置（超时时间、行数限制）
 - `Services/`:
   - `DataSourceService` — 数据源 CRUD + AES-CBC 加密/解密连接串（SHA256 密钥，零 IV）
   - `MetaScannerService` — 扫描 Oracle 库表结构（`ALL_TABLES`、`ALL_TAB_COLUMNS`）填充 MetaTable/MetaColumn
   - `QueryExecutionService` — 动态 SQL 生成与执行。**优先使用 RawSql**：将原始 SQL 包裹为 `SELECT COUNT(*) FROM (<rawSql>) "_cnt"` 做计数，`SELECT * FROM (SELECT t.*, ROWNUM rn FROM (<rawSql>) t WHERE ROWNUM <= :endRow) WHERE rn >= :startRow` 做分页。无 RawSql 时才从配置部件拼装 SQL（fields→SELECT，joins→按表分组合并 ON 条件，filters→带参数化运算符的 WHERE）。支持 `NOT LIKE`/`NOT IN`/`NOT BETWEEN`
   - `SqlParsingService` — 基于正则的 Oracle SQL 解析器：提取 SELECT 列、FROM 表、WHERE 筛选条件（含 `NOT LIKE`/`NOT IN`/`NOT BETWEEN`）、简单 JOIN 条件（仅 `别名.列 = 别名.列`）、GROUP BY、ORDER BY。**函数包裹的 JOIN 条件**（如 `to_char(a.date)=to_char(b.date)`）解析器无法识别，依赖 RawSql 原样执行保证结果正确
-- `Data/AppDbContext.cs` — EF Core 上下文，12 个 DbSet，完整关系配置（唯一索引、级联行为）
-- `Models/` — 12 个实体模型，对应 SQLite 表结构
+- `Data/AppDbContext.cs` — EF Core 上下文，15 个 DbSet，完整关系配置（唯一索引、级联行为）
+- `Models/` — 13 个实体模型，对应 SQLite 表结构
 - `DTOs/QueryDto.cs` — 所有请求/响应 DTO，含 SQL 导入相关类型
 
 ### 认证与授权
@@ -235,7 +236,7 @@ dotnet HospitalStats.Api.dll --urls http://0.0.0.0:5000
 
 ### 部署前检查清单
 
-- 登录后修改默认 `admin` 密码（`admin123`）
+- 登录后修改默认 `admin` 密码（随机生成，首次启动打印到控制台）
 - 确保 `config.db` 所在目录可写
 - 生产 Oracle 数据源通过管理员页面配置，连接串自动 AES 加密存储
 
@@ -260,11 +261,9 @@ dotnet HospitalStats.Api.dll --urls http://0.0.0.0:5000
 
 ### config.db 手动备份
 
-最新备份：`F:\HospitalStats\backups\config_20260601_131801.db`
-
 恢复命令：
 ```bash
-cp F:/HospitalStats/backups/config_20260601_131318.db F:/HospitalStats/HospitalStats.Backend/HospitalStats.Api/config.db
+cp F:/HospitalStats/backups/config_latest.db F:/HospitalStats/HospitalStats.Backend/HospitalStats.Api/config.db
 ```
 
 **注意**：`dotnet run` 实际读取 `bin/Debug/net8.0/config.db`，恢复后需重新 `dotnet run` 进行一次构建才能生效。或者直接拷贝到 `bin/Debug/net8.0/` 路径。
