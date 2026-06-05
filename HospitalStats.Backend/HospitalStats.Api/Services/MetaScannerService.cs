@@ -180,14 +180,17 @@ public class MetaScannerService
               ORDER BY c.COLUMN_ID",
             new { p_schema = table.SchemaName, p_table = table.TableName });
 
+        // Batch-load all existing columns to avoid N+1 queries
+        var existingColumns = await _db.MetaColumns
+            .Where(c => c.MetaTableId == table.Id)
+            .ToDictionaryAsync(c => c.ColumnName, StringComparer.OrdinalIgnoreCase);
+
         foreach (var col in columns)
         {
             var comments = useHexEncoding
                 ? QueryExecutionService.DecodeHexString(col.COMMENTS ?? "", charSetOverride)
                 : QueryExecutionService.ConvertEncoding(col.COMMENTS ?? "", charSetOverride);
-            var existing = await _db.MetaColumns
-                .FirstOrDefaultAsync(c => c.MetaTableId == table.Id
-                    && c.ColumnName == col.COLUMN_NAME);
+            existingColumns.TryGetValue(col.COLUMN_NAME, out var existing);
 
             if (existing != null)
             {

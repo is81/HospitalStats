@@ -203,9 +203,10 @@ public class QueryExecutionService
                 else if (useHexEncoding && val is string hexStr2 && !string.IsNullOrEmpty(hexStr2)
                     && hexStr2.Length % 2 == 0 && hexStr2.All(c => (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F')))
                 {
-                    // Fallback: decode any hex-like string even if not in hexColumns (RawSql-only configs)
                     var decoded = DecodeHexString(hexStr2, charSetOverride);
-                    if (decoded != hexStr2 && !string.IsNullOrEmpty(decoded))
+                    // Only replace if the decoded result contains non-ASCII (real Chinese data),
+                    // preventing false positives on values like "3031" or "FFFF"
+                    if (decoded != hexStr2 && !string.IsNullOrEmpty(decoded) && decoded.Any(c => c > 127))
                         val = decoded;
                 }
                 else if (useHexEncoding && val is string strVal && strVal.Any(c => c > 127 || c == '?'))
