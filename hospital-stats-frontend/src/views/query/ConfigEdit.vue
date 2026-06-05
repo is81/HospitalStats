@@ -429,14 +429,22 @@ async function handleSave() {
     ElMessage.warning('请填写名称和选择主表');
     return;
   }
+  // Filter out empty rows before save
+  const cleaned = {
+    ...form,
+    fields: form.fields.filter(f => f.metaColumnId > 0),
+    filters: form.filters.filter(f => f.metaColumnId > 0),
+    joins: form.joins.filter(j => j.joinTableId > 0),
+  };
+
   _savingLock = true;
   saving.value = true;
   try {
     if (isEdit) {
-      await queryApi.updateConfig(Number(configId), form);
+      await queryApi.updateConfig(Number(configId), cleaned);
       ElMessage.success('已更新');
     } else {
-      const res = await queryApi.createConfig(form);
+      const res = await queryApi.createConfig(cleaned);
       ElMessage.success('已创建');
       router.replace(`/query/configs/${res.data.id}`);
     }
