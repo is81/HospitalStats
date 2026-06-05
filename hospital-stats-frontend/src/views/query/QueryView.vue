@@ -102,9 +102,8 @@ async function doQuery(p?: number) {
 
 function renderChart() {
   if (!chartRef.value || !result.value || !config.value) return;
-  if (!chartInstance) {
-    chartInstance = echarts.init(chartRef.value);
-  }
+  if (chartInstance) { chartInstance.dispose(); }
+  chartInstance = echarts.init(chartRef.value);
 
   const r = result.value;
   const displayType = config.value.displayType;

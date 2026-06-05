@@ -97,18 +97,20 @@ public class MetaScannerService
             _logger.LogInformation("US7ASCII detected, probing Chinese data encoding in background");
             _ = Task.Run(async () =>
             {
+                using var scope = _scopeFactory.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                // Snapshot logger from the DI scope to avoid scoped-service disposal issues
+                var probeLogger = scope.ServiceProvider.GetRequiredService<ILogger<MetaScannerService>>();
                 try
                 {
-                    using var scope = _scopeFactory.CreateScope();
-                    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                     using var probeConn = new OracleConnection(connStrCapture);
                     await probeConn.OpenAsync();
                     await ProbeChineseEncodingAsync(probeConn, db, dsIdCapture, charSetCapture);
-                    _logger.LogInformation("Chinese encoding probe completed for datasource {DsId}", dsIdCapture);
+                    probeLogger.LogInformation("Chinese encoding probe completed for datasource {DsId}", dsIdCapture);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Chinese encoding probe failed for datasource {DsId}", dsIdCapture);
+                    probeLogger.LogWarning(ex, "Chinese encoding probe failed for datasource {DsId}", dsIdCapture);
                 }
             });
         }

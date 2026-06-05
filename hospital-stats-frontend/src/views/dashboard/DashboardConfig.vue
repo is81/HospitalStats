@@ -62,10 +62,14 @@ async function saveCard() {
 async function deleteCard(id: number) {
   try {
     await ElMessageBox.confirm('确定删除？', '确认', { type: 'warning' });
+  } catch { return; }
+  try {
     await dashboardApi.deleteCard(id);
     ElMessage.success('已删除');
     await loadData();
-  } catch { /* cancelled */ }
+  } catch {
+    ElMessage.error('删除失败');
+  }
 }
 
 async function onDragEnd() {

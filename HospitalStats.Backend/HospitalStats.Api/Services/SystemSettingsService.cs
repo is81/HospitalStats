@@ -10,6 +10,7 @@ public class SystemSettingsService
     private Dictionary<string, string> _cache = new(StringComparer.OrdinalIgnoreCase);
     private DateTime _cacheAt = DateTime.MinValue;
     private static readonly TimeSpan _cacheTtl = TimeSpan.FromSeconds(30);
+    private readonly SemaphoreSlim _cacheLock = new(1, 1);
 
     public SystemSettingsService(IServiceScopeFactory scopeFactory)
     {
@@ -78,10 +79,22 @@ public class SystemSettingsService
         if (_cache.Count > 0 && DateTime.UtcNow - _cacheAt < _cacheTtl)
             return _cache;
 
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        _cache = await db.SystemSettings.ToDictionaryAsync(s => s.Key, s => s.Value, StringComparer.OrdinalIgnoreCase);
-        _cacheAt = DateTime.UtcNow;
-        return _cache;
+        await _cacheLock.WaitAsync();
+        try
+        {
+            // Double-check: another thread may have already refreshed
+            if (_cache.Count > 0 && DateTime.UtcNow - _cacheAt < _cacheTtl)
+                return _cache;
+
+            using var scope = _scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            _cache = await db.SystemSettings.ToDictionaryAsync(s => s.Key, s => s.Value, StringComparer.OrdinalIgnoreCase);
+            _cacheAt = DateTime.UtcNow;
+            return _cache;
+        }
+        finally
+        {
+            _cacheLock.Release();
+        }
     }
 }

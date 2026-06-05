@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from 'vue';
-import { ElMessageBox } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { dashboardApi, type DashboardCardData, type DashboardFilter } from '../../api/dashboard';
 import { settingsApi } from '../../api/settings';
 import * as echarts from 'echarts';
@@ -30,27 +30,33 @@ const filters = ref<DashboardFilter>({
   dateTo: defaultDateTo(),
 });
 
+let loadGen = 0;
 const chartInstances: Record<number, echarts.ECharts> = {};
 const chartRefs = ref<Record<number, HTMLDivElement | null>>({});
 
 function setChartRef(id: number) {
   return (el: any) => {
     if (el) chartRefs.value[id] = el;
+    else delete chartRefs.value[id];
   };
 }
 
 async function loadDashboard() {
+  const gen = ++loadGen;
   loading.value = true;
   try {
     const params: DashboardFilter = {};
     if (filters.value.dateFrom) params.dateFrom = filters.value.dateFrom;
     if (filters.value.dateTo) params.dateTo = filters.value.dateTo;
     const res = await dashboardApi.getDashboard(Object.keys(params).length ? params : undefined);
+    if (gen !== loadGen) return; // stale response
     cards.value = res.data;
     await nextTick();
     renderCharts();
+  } catch {
+    ElMessage.error('仪表盘加载失败，请检查网络连接');
   } finally {
-    loading.value = false;
+    if (gen === loadGen) loading.value = false;
   }
 }
 

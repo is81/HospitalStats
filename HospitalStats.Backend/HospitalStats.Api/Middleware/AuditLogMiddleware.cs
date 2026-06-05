@@ -52,7 +52,7 @@ public class AuditLogMiddleware
         var elapsed = sw.ElapsedMilliseconds;
 
         var entry = new StringBuilder();
-        entry.Append(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff"));
+        entry.Append(DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff"));
         entry.Append(" | ");
         entry.Append(username);
         entry.Append(" | ");
@@ -78,7 +78,7 @@ public class AuditLogMiddleware
         try
         {
             Directory.CreateDirectory(_logDir);
-            var fileName = $"audit-{DateTime.Now:yyyy-MM-dd}.log";
+            var fileName = $"audit-{DateTime.UtcNow:yyyy-MM-dd}.log";
             await File.AppendAllTextAsync(Path.Combine(_logDir, fileName), entry.ToString(),
                 Encoding.UTF8);
         }

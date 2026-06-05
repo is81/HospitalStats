@@ -147,9 +147,8 @@ public class QueryExecutionService
         var maxRowCount = await _settingsService.GetIntAsync("MaxRowCount", 50000);
         if (total > maxRowCount)
         {
-            var wan = maxRowCount / 10000;
             throw new InvalidOperationException(
-                $"结果超过{wan}万行，请调整日期范围、筛选条件，或联系管理员调整限制");
+                $"结果超过{maxRowCount}行，请调整日期范围、筛选条件，或联系管理员调整限制");
         }
 
         // execute data

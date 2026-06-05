@@ -235,9 +235,9 @@ static void TryAddColumn(HospitalStats.Api.Data.AppDbContext db, string table, s
             $"ALTER TABLE {table} ADD COLUMN {column} {type}");
         Log.Information("Schema migration: {Table}.{Column} column added", table, column);
     }
-    catch
+    catch (Exception ex)
     {
-        // Column already exists, or table doesn't exist yet (fresh DB handled by EnsureCreated)
+        Log.Warning(ex, "Schema migration: {Table}.{Column} skipped", table, column);
     }
 }
 
@@ -248,9 +248,9 @@ static void TryAddTable(HospitalStats.Api.Data.AppDbContext db, string name, str
         db.Database.ExecuteSqlRaw(sql);
         Log.Information("Schema migration: table {Table} created", name);
     }
-    catch
+    catch (Exception ex)
     {
-        // Already exists
+        Log.Warning(ex, "Schema migration: table {Table} skipped", name);
     }
 }
 

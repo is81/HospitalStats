@@ -75,12 +75,14 @@ public class DashboardController : ControllerBase
                     var gteFilter = configFilters.FirstOrDefault(f =>
                         f.MetaColumn != null && dateCols.Contains(f.MetaColumn.ColumnName) && f.Operator == "GTE");
                     if (gteFilter != null) filterDict[gteFilter.Id.ToString()] = dateFrom;
+                    else _logger.LogWarning("Dashboard card '{Title}': no GTE date filter found for dateFrom", card.Title);
                 }
                 if (!string.IsNullOrEmpty(dateTo))
                 {
                     var ltFilter = configFilters.FirstOrDefault(f =>
                         f.MetaColumn != null && dateCols.Contains(f.MetaColumn.ColumnName) && f.Operator == "LT");
                     if (ltFilter != null) filterDict[ltFilter.Id.ToString()] = dateTo;
+                    else _logger.LogWarning("Dashboard card '{Title}': no LT date filter found for dateTo", card.Title);
                 }
 
                 var queryResult = await _executor.ExecuteAsync(
