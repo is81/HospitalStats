@@ -68,11 +68,8 @@ async function handleChangePassword() {
   <el-container style="height: 100vh">
     <el-aside width="220px" class="app-sidebar">
       <div class="logo">
-        <img src="/logo.png" class="logo-img" alt="logo" />
-        <div class="logo-text">
-          <span class="logo-title">医院数据统计平台</span>
-          <span class="logo-subtitle">Hospital Statistics Platform</span>
-        </div>
+        <img src="/mini_logo.png" class="logo-img" alt="logo" />
+        <span class="logo-title">医院数据统计平台</span>
       </div>
       <el-menu
         :default-active="activeMenu"
@@ -209,7 +206,7 @@ async function handleChangePassword() {
   pointer-events: none;
 }
 .logo {
-  padding: 18px 16px 14px;
+  padding: 16px 16px 12px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -218,34 +215,18 @@ async function handleChangePassword() {
   z-index: 1;
 }
 .logo-img {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
+  width: 41px;
+  height: 41px;
+  border-radius: 8px;
   object-fit: contain;
-  background: rgba(255, 255, 255, 0.95);
-  padding: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   flex-shrink: 0;
-}
-.logo-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  overflow: hidden;
 }
 .logo-title {
   color: #f1f5f9;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   line-height: 1.3;
-}
-.logo-subtitle {
-  color: #64748b;
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  line-height: 1.2;
 }
 :deep(.el-menu) {
   border-right: none;
