@@ -101,6 +101,70 @@ Copy-Item C:\HospitalStats\config.db C:\HospitalStats\backups\
 Start-Service HospitalStats
 ```
 
+## 故障处理
+
+### 服务无法启动
+
+```powershell
+# 1. 查看 Windows 事件日志
+Get-EventLog -LogName Application -Source "HospitalStats" -Newest 10
+
+# 2. 查看应用日志
+Get-Content C:\HospitalStats\logs\app-*.log -Tail 100
+
+# 3. 常见原因
+# - .NET 8 Runtime 未安装 → 安装 Hosting Bundle
+# - 端口 5000 被占用 → netstat -ano | findstr 5000
+# - appsettings.Production.json JSON 格式错误 → 检查语法
+# - config.db 损坏或权限不足 → 检查文件权限，尝试恢复备份
+```
+
+### 查询无响应或超时
+
+```powershell
+# 检查 Oracle 数据源连通性
+# 登录管理页面 → 数据源管理 → 点击"测试连接"
+
+# 查看日志确认错误类型
+Get-Content C:\HospitalStats\logs\app-*.log -Tail 50 | Select-String "error|fail|timeout"
+```
+
+### config.db 被意外替换
+
+```powershell
+# 从备份恢复
+Stop-Service HospitalStats
+Copy-Item C:\HospitalStats\backups\config_最新日期.db C:\HospitalStats\config.db
+Start-Service HospitalStats
+```
+
+### 修改配置后不生效
+
+- 系统设置页面（配置管理）的修改**立即生效**，无需重启
+- appsettings.Production.json 的修改需**重启服务**：`Restart-Service HospitalStats`
+
+## 回滚流程
+
+```powershell
+# 1. 停止服务
+Stop-Service HospitalStats
+
+# 2. 备份当前版本
+Move-Item C:\HospitalStats C:\HospitalStats.bak
+
+# 3. 恢复上一个版本的 publish 文件夹
+Copy-Item C:\backup\HospitalStats-publish-旧版本 C:\HospitalStats -Recurse
+
+# 4. 恢复数据库
+Copy-Item C:\HospitalStats.bak\config.db C:\HospitalStats\config.db
+
+# 5. 启动
+Start-Service HospitalStats
+
+# 验证正常后删除备份
+# Remove-Item C:\HospitalStats.bak -Recurse
+```
+
 ## 安全提醒
 
 - `appsettings.Production.json` 包含生产密钥，勿提交到 Git

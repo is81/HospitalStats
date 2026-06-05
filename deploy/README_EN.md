@@ -101,6 +101,56 @@ Copy-Item C:\HospitalStats\config.db C:\HospitalStats\backups\
 Start-Service HospitalStats
 ```
 
+## Troubleshooting
+
+### Service fails to start
+
+```powershell
+# Check Windows Event Log
+Get-EventLog -LogName Application -Source "HospitalStats" -Newest 10
+
+# Check application logs
+Get-Content C:\HospitalStats\logs\app-*.log -Tail 100
+
+# Common causes
+# - .NET 8 Runtime not installed → install Hosting Bundle
+# - Port 5000 already in use → netstat -ano | findstr 5000
+# - Malformed appsettings.Production.json → check JSON syntax
+# - config.db corrupted or no permissions → check file access, restore backup
+```
+
+### Query unresponsive or timeout
+
+```powershell
+# Test Oracle connectivity from admin page: Data Sources → Test Connection
+# Check logs for error details
+Get-Content C:\HospitalStats\logs\app-*.log -Tail 50 | Select-String "error|fail|timeout"
+```
+
+### config.db accidentally replaced
+
+```powershell
+Stop-Service HospitalStats
+Copy-Item C:\HospitalStats\backups\config_latest.db C:\HospitalStats\config.db
+Start-Service HospitalStats
+```
+
+### Settings changes not taking effect
+
+- System Settings page changes apply **immediately**, no restart needed
+- appsettings.Production.json changes require a restart: `Restart-Service HospitalStats`
+
+## Rollback
+
+```powershell
+Stop-Service HospitalStats
+Move-Item C:\HospitalStats C:\HospitalStats.bak
+Copy-Item C:\backup\HospitalStats-publish-old C:\HospitalStats -Recurse
+Copy-Item C:\HospitalStats.bak\config.db C:\HospitalStats\config.db
+Start-Service HospitalStats
+# Verify, then remove backup: Remove-Item C:\HospitalStats.bak -Recurse
+```
+
 ## Security Notes
 
 - `appsettings.Production.json` contains production secrets — do not commit to Git
