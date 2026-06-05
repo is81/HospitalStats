@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { useAuthStore } from '../stores/auth';
@@ -7,6 +7,20 @@ import { authApi } from '../api/auth';
 
 const route = useRoute();
 const authStore = useAuthStore();
+
+const activeMenu = computed(() => {
+  const p = route.path;
+  if (p.startsWith('/query/configs')) return '/query/configs';
+  if (p.startsWith('/query/menus')) return '/query/menus';
+  if (p.startsWith('/query/view') || p.startsWith('/query/preview')) return '/query/preview';
+  if (p.startsWith('/meta')) return '/meta';
+  if (p.startsWith('/admin/settings')) return '/admin/settings';
+  if (p.startsWith('/admin/roles')) return '/admin/roles';
+  if (p.startsWith('/admin/users')) return '/admin/users';
+  if (p.startsWith('/datasources')) return '/datasources';
+  if (p.startsWith('/dashboard/config')) return '/dashboard/config';
+  return p;
+});
 
 function handleLogout() {
   authStore.logout();
@@ -61,7 +75,7 @@ async function handleChangePassword() {
         </div>
       </div>
       <el-menu
-        :default-active="route.path"
+        :default-active="activeMenu"
         background-color="#0f172a"
         text-color="#94a3b8"
         active-text-color="#2dd4bf"

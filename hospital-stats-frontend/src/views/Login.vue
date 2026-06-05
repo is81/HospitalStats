@@ -54,8 +54,9 @@ async function handleLogin() {
         </el-form-item>
       </el-form>
       <div class="login-footer">
-        Design by 信息科 ZT |
-        <a href="#" @click.prevent="showVersion = true" class="version-link">版本</a>
+        Design by 信息科 ZT
+        <span style="margin: 0 6px; color: #475569">|</span>
+        <el-button text size="small" @click="showVersion = true" class="version-btn">版本</el-button>
       </div>
     </div>
   </div>
@@ -153,6 +154,8 @@ async function handleLogin() {
 }
 .version-link { color: #94a3b8; text-decoration: none; }
 .version-link:hover { color: #2dd4bf; }
+.version-btn { color: #94a3b8 !important; padding: 2px 6px; font-size: 12px; }
+.version-btn:hover { color: #2dd4bf !important; }
 .version-content { display: flex; flex-direction: column; gap: 24px; padding: 8px 16px 4px; }
 .version-block { position: relative; padding-left: 20px; border-left: 2px solid #e2e8f0; }
 .version-badge {

@@ -104,7 +104,7 @@ onMounted(() => {
         </template>
       </el-table-column>
     </el-table>
-    <el-empty v-if="!loading && configs.length === 0" description="暂无查询配置" />
+    <el-empty v-if="!loading && configs.length === 0" description="暂无查询配置，点击右上角新增" />
 
     <el-dialog v-model="showTips" title="查询配置说明" width="580px">
       <div class="tips-content">

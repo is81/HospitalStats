@@ -226,7 +226,7 @@ onUnmounted(() => { chartInstance?.dispose(); });
     <!-- Table Result -->
     <div v-if="result && config?.displayType === 'table'"
       style="background: white; padding: 16px; border-radius: 4px">
-      <el-table :data="result.rows" v-loading="loading" border stripe
+      <el-table :data="result.rows" v-loading="loading" border stripe highlight-current-row
         max-height="calc(100vh - 320px)">
         <el-table-column v-for="col in result.columns" :key="col"
           :prop="col" :label="col" min-width="140" show-overflow-tooltip />
