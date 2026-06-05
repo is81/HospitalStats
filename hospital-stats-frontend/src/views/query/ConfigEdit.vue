@@ -423,6 +423,7 @@ function removeJoin(idx: number) {
 }
 
 async function handleSave() {
+  if (saving.value) return; // prevent double submit
   if (!form.name || !form.mainTableId) {
     ElMessage.warning('请填写名称和选择主表');
     return;
