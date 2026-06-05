@@ -48,7 +48,7 @@ HospitalStats/
 │   │   ├── DTOs/                  # Request/response DTOs
 │   │   ├── Data/                  # EF Core DbContext (15 DbSets)
 │   │   └── Middleware/            # Exception / audit
-│   └── HospitalStats.Api.Tests/   # xUnit test suite (184 tests)
+│   └── HospitalStats.Api.Tests/   # xUnit test suite (180 tests)
 ├── deploy/                        # Deployment scripts & publish output
 ├── docs/                          # Local documentation (not uploaded)
 ├── LICENSE                        # MIT License

@@ -29,7 +29,7 @@
 - 授权模块完全移除
 
 ### 测试
-- 测试从 155 扩展到 184（新增 DataSourceService + SystemSettingsService）
+- 测试从 155 扩展到 180（新增 DataSourceService + SystemSettingsService）
 
 ---
 
