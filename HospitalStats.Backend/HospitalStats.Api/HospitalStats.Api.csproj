@@ -39,6 +39,7 @@
 
   <ItemGroup>
     <Content Update="wwwroot\logo.png" CopyToPublishDirectory="Never" />
+    <Content Update="wwwroot\mini_logo.png" CopyToPublishDirectory="Never" />
     <Content Update="backups\**" CopyToPublishDirectory="Never" />
     <Content Update="logs\**" CopyToPublishDirectory="Never" />
   </ItemGroup>
