@@ -847,7 +847,7 @@ onMounted(async () => {
       <div style="display: flex; justify-content: center; gap: 12px; margin-top: 24px">
         <el-button :disabled="activeStep === 0" @click="activeStep--">上一步</el-button>
         <el-button v-if="activeStep < 4" type="primary" @click="activeStep++">下一步</el-button>
-        <el-button v-else type="primary" :loading="saving" @click="handleSave">
+        <el-button v-else type="primary" :loading="saving" :disabled="saving" @click="handleSave">
           {{ isEdit ? '保存修改' : '创建配置' }}
         </el-button>
       </div>
