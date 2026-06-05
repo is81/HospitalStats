@@ -417,21 +417,6 @@ public class QueryExecutionService
         }
     }
 
-    internal static bool HasUserFilterInput(QueryConfig config, Dictionary<string, string> userFilters)
-    {
-        foreach (var filter in config.Filters)
-        {
-            if (filter.IsContextFilter) continue;
-            if (userFilters.TryGetValue(filter.Id.ToString(), out var userVal))
-            {
-                var defaultVal = filter.DefaultValue ?? "";
-                if (!string.Equals(userVal, defaultVal, StringComparison.Ordinal))
-                    return true;
-            }
-        }
-        return false;
-    }
-
     internal (string Sql, Dictionary<string, object?> Params) BuildCountSql(
         QueryConfig config, Dictionary<string, string> userFilters,
         Dictionary<string, string> contextValues,

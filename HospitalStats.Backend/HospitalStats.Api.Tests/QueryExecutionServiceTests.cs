@@ -483,48 +483,6 @@ public class QueryExecutionServiceTests
         Assert.Contains("\"P\"", result);
     }
 
-    // ===== HasUserFilterInput =====
-
-    [Fact]
-    public void HasUserFilterInput_UserValueDiffersFromDefault_ReturnsTrue()
-    {
-        var config = CreateSimpleConfig(filterId: 1, defaultValue: "abc");
-        var userFilters = new Dictionary<string, string> { ["1"] = "x" };
-
-        var result = QueryExecutionService.HasUserFilterInput(config, userFilters);
-        Assert.True(result);
-    }
-
-    [Fact]
-    public void HasUserFilterInput_UserValueEqualsDefault_ReturnsFalse()
-    {
-        var config = CreateSimpleConfig(filterId: 1, defaultValue: "abc");
-        var userFilters = new Dictionary<string, string> { ["1"] = "abc" };
-
-        var result = QueryExecutionService.HasUserFilterInput(config, userFilters);
-        Assert.False(result);
-    }
-
-    [Fact]
-    public void HasUserFilterInput_EmptyUserFilters_ReturnsFalse()
-    {
-        var config = CreateSimpleConfig(filterId: 1);
-        var userFilters = new Dictionary<string, string>();
-
-        var result = QueryExecutionService.HasUserFilterInput(config, userFilters);
-        Assert.False(result);
-    }
-
-    [Fact]
-    public void HasUserFilterInput_ContextFilter_Ignored()
-    {
-        var config = CreateSimpleConfig(filterId: 1, isContextFilter: true, contextKey: "DeptName");
-        var userFilters = new Dictionary<string, string> { ["1"] = "x" };
-
-        var result = QueryExecutionService.HasUserFilterInput(config, userFilters);
-        Assert.False(result);
-    }
-
     // ===== BuildOrderBy =====
 
     [Fact]

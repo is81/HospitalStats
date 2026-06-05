@@ -6,8 +6,8 @@ import { settingsApi } from '../../api/settings';
 const loading = ref(false);
 const saving = ref(false);
 const form = ref<Record<string, string | number>>({
-  QueryTimeoutSeconds: '120',
-  MaxRowCount: '50000',
+  QueryTimeoutSeconds: 120,
+  MaxRowCount: 50000,
   DashboardDateColumns: 'VISIT_DATE,BILLING_DATE_TIME,DISCHARGE_DATE_TIME,PRESC_DATE',
   DashboardDefaultDays: 1,
 });
@@ -16,8 +16,8 @@ async function load() {
   loading.value = true;
   try {
     const res = await settingsApi.getAll();
-    form.value.QueryTimeoutSeconds = res.data.QueryTimeoutSeconds || '120';
-    form.value.MaxRowCount = res.data.MaxRowCount || '50000';
+    form.value.QueryTimeoutSeconds = Number(res.data.QueryTimeoutSeconds) || 120;
+    form.value.MaxRowCount = Number(res.data.MaxRowCount) || 50000;
     form.value.DashboardDateColumns = res.data.DashboardDateColumns ||
       'VISIT_DATE,BILLING_DATE_TIME,DISCHARGE_DATE_TIME,PRESC_DATE';
     form.value.DashboardDefaultDays = Number(res.data.DashboardDefaultDays || '1');
