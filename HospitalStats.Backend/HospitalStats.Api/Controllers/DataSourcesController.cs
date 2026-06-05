@@ -59,7 +59,6 @@ public class DataSourcesController : ControllerBase
     }
 
     [HttpPost("test")]
-    [AllowAnonymous]
     public async Task<ActionResult<TestConnectionResult>> TestConnectionString(
         [FromBody] TestConnectionStringRequest request)
     {

@@ -5,15 +5,22 @@ import { dashboardApi, type DashboardCardData, type DashboardFilter } from '../.
 import { settingsApi } from '../../api/settings';
 import * as echarts from 'echarts';
 
+function localDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 const defaultDays = ref(1);
 
 function defaultDateFrom() {
   const d = new Date();
   d.setDate(d.getDate() - defaultDays.value);
-  return d.toISOString().slice(0, 10);
+  return localDate(d);
 }
 function defaultDateTo() {
-  return new Date().toISOString().slice(0, 10);
+  return localDate(new Date());
 }
 
 const cards = ref<DashboardCardData[]>([]);
@@ -74,7 +81,7 @@ function onFilterChange() {
 function quickDate(months: number) {
   const d = new Date();
   d.setDate(d.getDate() - months * 30);
-  filters.value = { dateFrom: d.toISOString().slice(0, 10), dateTo: defaultDateTo() };
+  filters.value = { dateFrom: localDate(d), dateTo: defaultDateTo() };
   maybeLoadDashboard();
 }
 
@@ -85,7 +92,7 @@ function activePreset() {
   for (const m of [1, 2, 3]) {
     const d = new Date();
     d.setDate(d.getDate() - m * 30);
-    if (d.toISOString().slice(0, 10) === from && defaultDateTo() === to) return m;
+    if (localDate(d) === from && defaultDateTo() === to) return m;
   }
   return 0;
 }
