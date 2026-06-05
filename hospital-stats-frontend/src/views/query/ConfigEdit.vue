@@ -422,12 +422,14 @@ function removeJoin(idx: number) {
   joinDsId.value = newMap;
 }
 
+let _savingLock = false;
 async function handleSave() {
-  if (saving.value) return; // prevent double submit
+  if (_savingLock || saving.value) return;
   if (!form.name || !form.mainTableId) {
     ElMessage.warning('请填写名称和选择主表');
     return;
   }
+  _savingLock = true;
   saving.value = true;
   try {
     if (isEdit) {
@@ -442,6 +444,7 @@ async function handleSave() {
     const msg = err?.response?.data?.message || err?.response?.data?.title || err?.message || '保存失败';
     ElMessage.error(typeof msg === 'string' ? msg : '保存失败');
   } finally {
+    _savingLock = false;
     saving.value = false;
   }
 }

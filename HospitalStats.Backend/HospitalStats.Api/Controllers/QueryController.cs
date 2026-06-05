@@ -190,6 +190,9 @@ public class QueryController : ControllerBase
     [HttpPost("configs")]
     public async Task<ActionResult<QueryConfigDto>> CreateConfig([FromBody] QueryConfigSaveRequest req)
     {
+        if (await _db.QueryConfigs.AnyAsync(q => q.Name == req.Name))
+            return Conflict(new { message = "同名配置已存在，请修改名称" });
+
         var entity = new QueryConfig
         {
             Name = req.Name,
@@ -224,6 +227,9 @@ public class QueryController : ControllerBase
             .FirstOrDefaultAsync(q => q.Id == id);
 
         if (entity == null) return NotFound();
+
+        if (await _db.QueryConfigs.AnyAsync(q => q.Name == req.Name && q.Id != id))
+            return Conflict(new { message = "同名配置已存在，请修改名称" });
 
         entity.Name = req.Name;
         entity.MainTableId = req.MainTableId;
