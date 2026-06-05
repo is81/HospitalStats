@@ -104,6 +104,19 @@ Default admin account `admin` with a randomly generated password printed to cons
 - UNION filter injection is per-branch to avoid ORA-00918 ambiguity.
 - Inline Chinese literals use `RAWTOHEX(HEXTORAW())` encoding.
 
+## Extensibility
+
+Currently Oracle-only, but the architecture supports extension to other databases (SQL Server, PostgreSQL, etc.) via an `IDbAdapter` interface. Oracle-specific logic would be extracted into an adapter, injected per data source:
+
+| Current Oracle-specific logic | Adapter method |
+|------------------------------|----------------|
+| `ROWNUM` three-level pagination | `BuildPagedQuery(sql, page, pageSize)` |
+| `TO_DATE()` formatting | `FormatDateParam(value)` |
+| `RAWTOHEX(UTL_RAW.CAST_TO_RAW())` | `EncodeStringColumn(col)` |
+| `ALL_TABLES` / `ALL_TAB_COLUMNS` scanning | `GetSchemaMetadata(conn)` |
+
+Effort: ~5-6 days backend for the first new database, zero frontend changes. Existing Oracle users unaffected.
+
 ## License
 
 MIT License

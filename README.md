@@ -104,6 +104,19 @@ cd deploy/publish && dotnet HospitalStats.Api.dll --urls http://0.0.0.0:5000
 - UNION 查询按分支独立注入筛选，防 ORA-00918 中文别名冲突
 - 行内中文字面量用 `RAWTOHEX(HEXTORAW())` 处理
 
+## 扩展可能
+
+目前仅对接 Oracle，但架构支持扩展至其他数据库（SQL Server、PostgreSQL 等）。核心思路是抽象 `IDbAdapter` 接口，将 Oracle 专有逻辑收拢到适配器中，按数据源级别注入：
+
+| 当前 Oracle 专有逻辑 | 适配器方法 |
+|---------------------|-----------|
+| `ROWNUM` 三层子查询分页 | `BuildPagedQuery(sql, page, pageSize)` |
+| `TO_DATE()` 日期格式 | `FormatDateParam(value)` |
+| `RAWTOHEX(UTL_RAW.CAST_TO_RAW())` | `EncodeStringColumn(col)` |
+| `ALL_TABLES` / `ALL_TAB_COLUMNS` 扫描 | `GetSchemaMetadata(conn)` |
+
+改动范围：后端约 5-6 天（加首个新库），前端零改动。现有 Oracle 用户不受影响。
+
 ## 许可证
 
 MIT License
