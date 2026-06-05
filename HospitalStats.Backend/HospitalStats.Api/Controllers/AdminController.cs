@@ -59,6 +59,7 @@ public class AdminController : ControllerBase
             DisplayName = req.DisplayName,
             DeptName = req.DeptName
         };
+        using var tx = await _db.Database.BeginTransactionAsync();
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
 
@@ -70,6 +71,7 @@ public class AdminController : ControllerBase
             }
             await _db.SaveChangesAsync();
         }
+        await tx.CommitAsync();
 
         return CreatedAtAction(nameof(GetUsers), new UserDto
         {
@@ -147,12 +149,14 @@ public class AdminController : ControllerBase
     [HttpPost("roles")]
     public async Task<ActionResult<RoleDto>> CreateRole([FromBody] RoleSaveRequest req)
     {
+        using var tx2 = await _db.Database.BeginTransactionAsync();
         var role = new Role { Name = req.Name, Description = req.Description };
         _db.Roles.Add(role);
         await _db.SaveChangesAsync();
 
         UpdateRoleMenus(role.Id, req.MenuIds);
         await _db.SaveChangesAsync();
+        await tx2.CommitAsync();
 
         return CreatedAtAction(nameof(GetRoles), new RoleDto
         {

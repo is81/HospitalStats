@@ -50,6 +50,29 @@ public class SystemSettingsService
         _cacheAt = DateTime.MinValue; // force refresh
     }
 
+    public async Task SetBatchAsync(Dictionary<string, string> settings)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        using var tx = await db.Database.BeginTransactionAsync();
+        foreach (var (key, value) in settings)
+        {
+            if (string.IsNullOrEmpty(key)) continue;
+            var setting = await db.SystemSettings.FindAsync(key);
+            if (setting == null)
+            {
+                db.SystemSettings.Add(new SystemSetting { Key = key, Value = value });
+            }
+            else
+            {
+                setting.Value = value;
+            }
+        }
+        await db.SaveChangesAsync();
+        await tx.CommitAsync();
+        _cacheAt = DateTime.MinValue;
+    }
+
     private async Task<Dictionary<string, string>> GetMapAsync()
     {
         if (_cache.Count > 0 && DateTime.UtcNow - _cacheAt < _cacheTtl)

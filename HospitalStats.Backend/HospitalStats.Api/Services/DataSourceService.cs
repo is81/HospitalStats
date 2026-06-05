@@ -195,7 +195,7 @@ public class DataSourceService
             var oldResult = DecryptWithIV(raw, key, new byte[16]);
             if (IsValidConnString(oldResult)) return oldResult;
         }
-        catch { }
+        catch (CryptographicException) { }
         if (raw.Length >= 32)
         {
             try
@@ -203,9 +203,13 @@ public class DataSourceService
                 var newResult = DecryptWithIV(raw, key, raw[..16]);
                 if (IsValidConnString(newResult)) return newResult;
             }
-            catch { }
+            catch (CryptographicException) { }
         }
-        return DecryptWithIV(raw, key, new byte[16]);
+        var fallback = DecryptWithIV(raw, key, new byte[16]);
+        if (!IsValidConnString(fallback))
+            throw new InvalidOperationException(
+                "Decryption failed: unable to recover connection string. The Encryption:Key may have changed or the ciphertext is corrupted.");
+        return fallback;
     }
 
     private string Encrypt(string plainText)

@@ -25,11 +25,7 @@ public class SettingsController : ControllerBase
     [HttpPut]
     public async Task<IActionResult> Update([FromBody] Dictionary<string, string> settings)
     {
-        foreach (var (key, value) in settings)
-        {
-            if (string.IsNullOrEmpty(key)) continue;
-            await _service.SetAsync(key, value);
-        }
+        await _service.SetBatchAsync(settings);
         return NoContent();
     }
 }
