@@ -233,9 +233,17 @@ onUnmounted(() => {
   <div>
     <div style="margin-bottom: 12px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap">
       <span style="font-size: 18px; font-weight: 600">仪表盘</span>
-      <el-tabs v-model="activeTab" @tab-change="(t: any) => switchTab(t)" style="margin-bottom: -18px">
-        <el-tab-pane label="核心指标" name="core" />
-        <el-tab-pane label="趋势对比" name="trend" />
+      <el-tabs v-model="activeTab" @tab-change="(t: any) => switchTab(t)" class="dash-tabs">
+        <el-tab-pane name="core">
+          <template #label>
+            <span class="tab-label">核心指标</span>
+          </template>
+        </el-tab-pane>
+        <el-tab-pane name="trend">
+          <template #label>
+            <span class="tab-label">趋势对比</span>
+          </template>
+        </el-tab-pane>
       </el-tabs>
     </div>
 
@@ -348,4 +356,19 @@ onUnmounted(() => {
 .card-table table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .card-table th { background: #f5f7fa; padding: 6px 8px; text-align: left; border-bottom: 1px solid #ebeef5; white-space: nowrap; }
 .card-table td { padding: 5px 8px; border-bottom: 1px solid #ebeef5; white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+
+.dash-tabs { margin-bottom: -18px; }
+.dash-tabs :deep(.el-tabs__header) { margin: 0; }
+.dash-tabs :deep(.el-tabs__nav-wrap::after) { display: none; }
+.dash-tabs :deep(.el-tabs__item) {
+  font-size: 14px; font-weight: 500; padding: 0 20px; height: 36px; line-height: 36px;
+  border-radius: 6px; margin-right: 4px; transition: all 0.2s;
+}
+.dash-tabs :deep(.el-tabs__item.is-active) {
+  background: #0d9488; color: #fff; font-weight: 600;
+}
+.dash-tabs :deep(.el-tabs__item:hover:not(.is-active)) {
+  background: rgba(13, 148, 136, 0.08); color: #0d9488;
+}
+.dash-tabs :deep(.el-tabs__active-bar) { display: none; }
 </style>
