@@ -205,6 +205,7 @@ async function handleChangePassword() {
 }
 .menu-scroll {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding-bottom: 40px;
 }
