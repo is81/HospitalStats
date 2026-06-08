@@ -240,10 +240,7 @@ onUnmounted(() => {
     </div>
 
     <div style="margin-bottom: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap">
-      <span style="font-size: 12px; color: #909399">
-        {{ activeTab === 'core' ? `默认显示前 ${defaultDays} 天` : `默认显示前 ${trendDays} 天` }}，查更多请修改起止日期
-      </span>
-      <span style="font-size: 13px; color: #606266; margin-left: 4px">开始日期</span>
+      <span style="font-size: 13px; color: #606266">开始日期</span>
       <el-date-picker
         v-model="filters.dateFrom"
         type="date"
@@ -269,6 +266,9 @@ onUnmounted(() => {
         <el-button :type="activePreset() === 3 ? 'primary' : 'default'" @click="quickDate(3)">近3月</el-button>
       </el-button-group>
       <el-button size="small" @click="loadDashboard" :loading="loading" type="primary">刷新</el-button>
+      <span style="font-size: 12px; color: #909399">
+        {{ activeTab === 'core' ? `默认显示前 ${defaultDays} 天` : `默认显示前 ${trendDays} 天` }}，查更多请修改起止日期
+      </span>
     </div>
 
     <div class="dash-grid" v-loading="loading">
