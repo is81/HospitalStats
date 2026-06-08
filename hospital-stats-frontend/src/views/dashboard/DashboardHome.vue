@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { dashboardApi, type DashboardCardData, type DashboardFilter } from '../../api/dashboard';
 import { settingsApi } from '../../api/settings';
@@ -12,21 +12,30 @@ function localDate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+const activeTab = ref<'core' | 'trend'>('core');
 const defaultDays = ref(1);
+const trendDays = ref(30);
 
-function defaultDateFrom() {
+function coreDateFrom() {
   const d = new Date();
   d.setDate(d.getDate() - defaultDays.value);
+  return localDate(d);
+}
+function trendDateFrom() {
+  const d = new Date();
+  d.setDate(d.getDate() - trendDays.value);
   return localDate(d);
 }
 function defaultDateTo() {
   return localDate(new Date());
 }
 
-const cards = ref<DashboardCardData[]>([]);
+const allCards = ref<DashboardCardData[]>([]);
+const coreCards = computed(() => allCards.value.filter(c => !c.compareMode));
+const trendCards = computed(() => allCards.value.filter(c => c.compareMode));
 const loading = ref(false);
 const filters = ref<DashboardFilter>({
-  dateFrom: defaultDateFrom(),
+  dateFrom: coreDateFrom(),
   dateTo: defaultDateTo(),
 });
 
@@ -41,6 +50,23 @@ function setChartRef(id: number) {
   };
 }
 
+function currentCards() {
+  return activeTab.value === 'core' ? coreCards.value : trendCards.value;
+}
+
+function activeDateFrom() {
+  return activeTab.value === 'core' ? coreDateFrom() : trendDateFrom();
+}
+
+function switchTab(tab: 'core' | 'trend') {
+  activeTab.value = tab;
+  filters.value = {
+    dateFrom: activeDateFrom(),
+    dateTo: defaultDateTo(),
+  };
+  loadDashboard();
+}
+
 async function loadDashboard() {
   const gen = ++loadGen;
   loading.value = true;
@@ -49,8 +75,8 @@ async function loadDashboard() {
     if (filters.value.dateFrom) params.dateFrom = filters.value.dateFrom;
     if (filters.value.dateTo) params.dateTo = filters.value.dateTo;
     const res = await dashboardApi.getDashboard(Object.keys(params).length ? params : undefined);
-    if (gen !== loadGen) return; // stale response
-    cards.value = res.data;
+    if (gen !== loadGen) return;
+    allCards.value = res.data;
     await nextTick();
     renderCharts();
   } catch {
@@ -78,7 +104,7 @@ async function maybeLoadDashboard() {
 
 function onFilterChange() {
   if (!filters.value.dateFrom || !filters.value.dateTo) {
-    filters.value.dateFrom = defaultDateFrom();
+    filters.value.dateFrom = activeDateFrom();
     filters.value.dateTo = defaultDateTo();
   }
   maybeLoadDashboard();
@@ -104,7 +130,7 @@ function activePreset() {
 }
 
 function renderCharts() {
-  for (const card of cards.value) {
+  for (const card of currentCards()) {
     const type = card.displayType;
     if (type === 'bar' || type === 'line' || type === 'pie') {
       renderChart(card, type);
@@ -188,7 +214,8 @@ onMounted(async () => {
   try {
     const res = await settingsApi.getAll();
     defaultDays.value = Number(res.data.DashboardDefaultDays || '1');
-  } catch { /* use default */ }
+    trendDays.value = Number(res.data.TrendDefaultDays || '30');
+  } catch { /* use defaults */ }
   loadDashboard();
   window.addEventListener('resize', onWindowResize);
 });
@@ -206,7 +233,16 @@ onUnmounted(() => {
   <div>
     <div style="margin-bottom: 12px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap">
       <span style="font-size: 18px; font-weight: 600">仪表盘</span>
-      <span style="font-size: 12px; color: #909399">默认显示前 {{ defaultDays }} 天，查更多请修改起止日期</span>
+      <el-tabs v-model="activeTab" @tab-change="(t: any) => switchTab(t)" style="margin-bottom: -18px">
+        <el-tab-pane label="核心指标" name="core" />
+        <el-tab-pane label="趋势对比" name="trend" />
+      </el-tabs>
+    </div>
+
+    <div style="margin-bottom: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap">
+      <span style="font-size: 12px; color: #909399">
+        {{ activeTab === 'core' ? `默认显示前 ${defaultDays} 天` : `默认显示前 ${trendDays} 天` }}，查更多请修改起止日期
+      </span>
       <span style="font-size: 13px; color: #606266; margin-left: 4px">开始日期</span>
       <el-date-picker
         v-model="filters.dateFrom"
@@ -226,7 +262,7 @@ onUnmounted(() => {
         size="small"
         style="width: 130px"
         @change="onFilterChange"
-        />
+      />
       <el-button-group size="small">
         <el-button :type="activePreset() === 1 ? 'primary' : 'default'" @click="quickDate(1)">近1月</el-button>
         <el-button :type="activePreset() === 2 ? 'primary' : 'default'" @click="quickDate(2)">近2月</el-button>
@@ -236,11 +272,14 @@ onUnmounted(() => {
     </div>
 
     <div class="dash-grid" v-loading="loading">
-      <div v-for="card in cards" :key="card.id" :style="{ gridColumn: `span ${card.width}` }">
+      <div v-for="card in currentCards()" :key="card.id" :style="{ gridColumn: `span ${card.width}` }">
         <div class="dash-card" :style="{ borderTopColor: card.color || '#00603D' }">
           <div class="card-header">
             <span class="card-icon">{{ getIcon(card.icon) }}</span>
             <span class="card-title">{{ card.title }}</span>
+            <el-tag v-if="card.compareMode" size="small" type="warning" style="margin-left: 6px">
+              {{ card.compareMode === 'mom' ? '环比' : '同比' }}
+            </el-tag>
           </div>
           <div class="card-body">
             <div v-if="card.data?.error" class="card-error">{{ card.data.error }}</div>
@@ -271,8 +310,8 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <el-empty v-if="!loading && cards.length === 0"
-      description="暂无仪表盘卡片，请在配置中添加" />
+    <el-empty v-if="!loading && currentCards().length === 0"
+      :description="activeTab === 'core' ? '暂无核心指标，请在仪表盘配置中添加无对比模式的卡片' : '暂无趋势对比卡片，请在仪表盘配置中添加环比或同比对比模式的卡片'" />
   </div>
 </template>
 

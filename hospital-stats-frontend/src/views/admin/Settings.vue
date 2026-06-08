@@ -10,6 +10,7 @@ const form = ref<Record<string, string | number>>({
   MaxRowCount: 50000,
   DashboardDateColumns: 'VISIT_DATE,BILLING_DATE_TIME,DISCHARGE_DATE_TIME,PRESC_DATE',
   DashboardDefaultDays: 1,
+  TrendDefaultDays: 30,
   HistoryLimit: 50000,
 });
 
@@ -22,6 +23,7 @@ async function load() {
     form.value.DashboardDateColumns = res.data.DashboardDateColumns ||
       'VISIT_DATE,BILLING_DATE_TIME,DISCHARGE_DATE_TIME,PRESC_DATE';
     form.value.DashboardDefaultDays = Number(res.data.DashboardDefaultDays || '1');
+    form.value.TrendDefaultDays = Number(res.data.TrendDefaultDays || '30');
     form.value.HistoryLimit = Number(res.data.HistoryLimit || '50000');
   } finally {
     loading.value = false;
@@ -36,6 +38,7 @@ async function save() {
       MaxRowCount: String(form.value.MaxRowCount),
       DashboardDateColumns: String(form.value.DashboardDateColumns),
       DashboardDefaultDays: String(form.value.DashboardDefaultDays),
+      TrendDefaultDays: String(form.value.TrendDefaultDays),
       HistoryLimit: String(form.value.HistoryLimit),
     });
     ElMessage.success('已保存，立即生效');
@@ -72,7 +75,11 @@ onMounted(load);
         </el-form-item>
         <el-form-item label="仪表盘默认起始日">
           <el-input-number v-model="form.DashboardDefaultDays" :min="0" :max="365" />
-          <span style="color:#909399;font-size:12px;margin-left:8px">向前推 N 天，0=今天，1=昨天</span>
+          <span style="color:#909399;font-size:12px;margin-left:8px">核心指标标签页，向前推 N 天</span>
+        </el-form-item>
+        <el-form-item label="趋势对比默认起始日">
+          <el-input-number v-model="form.TrendDefaultDays" :min="1" :max="365" />
+          <span style="color:#909399;font-size:12px;margin-left:8px">趋势对比标签页，向前推 N 天，默认 30</span>
         </el-form-item>
         <el-form-item label="查询历史保留条数">
           <el-input-number v-model="form.HistoryLimit" :min="1000" :max="200000" :step="10000" />

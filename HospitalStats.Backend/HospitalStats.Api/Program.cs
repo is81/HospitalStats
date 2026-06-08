@@ -173,6 +173,7 @@ try
         SeedIfMissing(db, "QueryTimeoutSeconds", "120");
         SeedIfMissing(db, "MaxRowCount", "50000");
         SeedIfMissing(db, "HistoryLimit", "50000");
+        SeedIfMissing(db, "TrendDefaultDays", "30");
     }
 
     // Global exception handling
