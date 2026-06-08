@@ -9,6 +9,15 @@ export interface QueryResult {
   elapsedMs: number;
 }
 
+export interface HistoryEntry {
+  id: number;
+  queryConfigId: number;
+  queryConfigName: string;
+  executedAt: string;
+  rowCount: number;
+  elapsedMs: number;
+}
+
 export const executeApi = {
   execute(configId: number, filters: Record<string, string>, page?: number, pageSize?: number) {
     return api.post<QueryResult>(`/query-execute/${configId}`, {
@@ -16,6 +25,9 @@ export const executeApi = {
       page,
       pageSize,
     });
+  },
+  getHistory(limit = 10) {
+    return api.get<HistoryEntry[]>('/query-execute/history', { params: { limit } });
   },
   getFilterOptions(configId: number, filterId: number) {
     return api.get<string[]>(`/query-execute/${configId}/filter-options/${filterId}`);
