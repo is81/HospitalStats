@@ -30,5 +30,8 @@ public class DashboardCard
 
     public bool IsEnabled { get; set; } = true;
 
+    [MaxLength(10)]
+    public string? CompareMode { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

@@ -54,7 +54,8 @@ public class DashboardController : ControllerBase
                 Unit = card.Unit,
                 SortOrder = card.SortOrder,
                 Width = card.Width,
-                IsEnabled = card.IsEnabled
+                IsEnabled = card.IsEnabled,
+                CompareMode = card.CompareMode
             };
 
             // execute bound query to get data
@@ -93,15 +94,45 @@ public class DashboardController : ControllerBase
                 if (card.DisplayType == "number" && queryResult.Rows.Count > 0)
                 {
                     var firstRow = queryResult.Rows[0];
-                    // 优先用配置字段的列名，RawSql场景则从行键提取
                     var columns = queryResult.Columns.Count > 0
                         ? queryResult.Columns
                         : firstRow.Keys.ToList();
+                    var value = firstRow.GetValueOrDefault(columns[0])?.ToString() ?? "-";
+
+                    // Compare mode: calculate previous period
+                    double? changePct = null;
+                    string? compareLabel = null;
+                    if (!string.IsNullOrEmpty(card.CompareMode) && !string.IsNullOrEmpty(dateFrom) && !string.IsNullOrEmpty(dateTo))
+                    {
+                        var prevFilterDict = BuildCompareFilterDict(card.CompareMode, dateFrom, dateTo, configFilters, dateCols);
+                        if (prevFilterDict != null)
+                        {
+                            try
+                            {
+                                var prevResult = await _executor.ExecuteAsync(card.QueryConfigId.Value, prevFilterDict, 1, 1);
+                                if (prevResult.Rows.Count > 0)
+                                {
+                                    var prevRow = prevResult.Rows[0];
+                                    var prevColumns = prevResult.Columns.Count > 0 ? prevResult.Columns : prevRow.Keys.ToList();
+                                    var prevValueStr = prevRow.GetValueOrDefault(prevColumns[0])?.ToString() ?? "0";
+                                    if (double.TryParse(value, out var cur) && double.TryParse(prevValueStr, out var prev) && prev != 0)
+                                    {
+                                        changePct = Math.Round((cur - prev) / prev * 100, 1);
+                                    }
+                                    compareLabel = card.CompareMode == "mom" ? "环比" : "同比";
+                                }
+                            }
+                            catch { /* compare query failed, just show main value */ }
+                        }
+                    }
+
                     dto.Data = new
                     {
-                        value = firstRow.GetValueOrDefault(columns[0])?.ToString() ?? "-",
+                        value,
+                        compareLabel,
+                        changePct,
                         rows = queryResult.Rows.Take(20),
-                        columns = columns,
+                        columns,
                         total = queryResult.Total
                     };
                 }
@@ -132,6 +163,36 @@ public class DashboardController : ControllerBase
         return result;
     }
 
+    private static Dictionary<string, string>? BuildCompareFilterDict(
+        string compareMode, string dateFrom, string dateTo,
+        List<QueryFilter> configFilters, string[] dateCols)
+    {
+        if (!DateTime.TryParse(dateFrom, out var from) || !DateTime.TryParse(dateTo, out var to))
+            return null;
+        var span = to - from;
+        DateTime prevFrom, prevTo;
+        if (compareMode == "mom")
+        {
+            prevTo = from.AddDays(-1);
+            prevFrom = prevTo.AddDays(-span.TotalDays);
+        }
+        else if (compareMode == "yoy")
+        {
+            prevFrom = from.AddYears(-1);
+            prevTo = to.AddYears(-1);
+        }
+        else return null;
+
+        var dict = new Dictionary<string, string>();
+        var gteFilter = configFilters.FirstOrDefault(f =>
+            f.MetaColumn != null && dateCols.Contains(f.MetaColumn.ColumnName) && f.Operator == "GTE");
+        if (gteFilter != null) dict[gteFilter.Id.ToString()] = prevFrom.ToString("yyyy-MM-dd");
+        var ltFilter = configFilters.FirstOrDefault(f =>
+            f.MetaColumn != null && dateCols.Contains(f.MetaColumn.ColumnName) && f.Operator == "LT");
+        if (ltFilter != null) dict[ltFilter.Id.ToString()] = prevTo.ToString("yyyy-MM-dd");
+        return dict.Count > 0 ? dict : null;
+    }
+
     // ===== Card CRUD =====
 
     [HttpGet("cards")]
@@ -154,7 +215,8 @@ public class DashboardController : ControllerBase
             Unit = c.Unit,
             SortOrder = c.SortOrder,
             Width = c.Width,
-            IsEnabled = c.IsEnabled
+            IsEnabled = c.IsEnabled,
+            CompareMode = c.CompareMode
         }).ToList();
     }
 
@@ -171,7 +233,8 @@ public class DashboardController : ControllerBase
             Unit = req.Unit,
             SortOrder = req.SortOrder,
             Width = req.Width,
-            IsEnabled = req.IsEnabled
+            IsEnabled = req.IsEnabled,
+            CompareMode = req.CompareMode
         };
         _db.DashboardCards.Add(entity);
         await _db.SaveChangesAsync();
@@ -187,7 +250,8 @@ public class DashboardController : ControllerBase
             Unit = entity.Unit,
             SortOrder = entity.SortOrder,
             Width = entity.Width,
-            IsEnabled = entity.IsEnabled
+            IsEnabled = entity.IsEnabled,
+            CompareMode = entity.CompareMode
         });
     }
 
@@ -206,6 +270,7 @@ public class DashboardController : ControllerBase
         entity.SortOrder = req.SortOrder;
         entity.Width = req.Width;
         entity.IsEnabled = req.IsEnabled;
+        entity.CompareMode = req.CompareMode;
 
         await _db.SaveChangesAsync();
         return NoContent();

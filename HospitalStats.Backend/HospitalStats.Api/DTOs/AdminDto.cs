@@ -77,6 +77,7 @@ public class DashboardCardDto
     public int SortOrder { get; set; }
     public int Width { get; set; } = 6;
     public bool IsEnabled { get; set; }
+    public string? CompareMode { get; set; }
     public object? Data { get; set; }
 }
 
@@ -102,6 +103,9 @@ public class DashboardCardSaveRequest
     public int SortOrder { get; set; }
     public int Width { get; set; } = 6;
     public bool IsEnabled { get; set; } = true;
+
+    [MaxLength(10)]
+    public string? CompareMode { get; set; }
 }
 
 public class DashboardCardOrderRequest

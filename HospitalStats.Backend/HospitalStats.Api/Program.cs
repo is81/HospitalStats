@@ -227,6 +227,8 @@ static void MigrateSchema(HospitalStats.Api.Data.AppDbContext db)
     TryAddTable(db, "SystemSettings", "CREATE TABLE IF NOT EXISTS SystemSettings (Key TEXT PRIMARY KEY, Value TEXT NOT NULL DEFAULT '')");
     // QueryHistories — added 2026-06-08
     TryAddTable(db, "QueryHistories", "CREATE TABLE IF NOT EXISTS QueryHistories (Id INTEGER PRIMARY KEY AUTOINCREMENT, UserId INTEGER, QueryConfigId INTEGER, QueryConfigName TEXT NOT NULL DEFAULT '', FiltersJson TEXT, ExecutedAt TEXT NOT NULL, RowCount INTEGER NOT NULL DEFAULT 0, ElapsedMs INTEGER NOT NULL DEFAULT 0)");
+    // DashboardCards.CompareMode — added 2026-06-08
+    TryAddColumn(db, "DashboardCards", "CompareMode", "TEXT");
 }
 
 static void TryAddColumn(HospitalStats.Api.Data.AppDbContext db, string table, string column, string type)

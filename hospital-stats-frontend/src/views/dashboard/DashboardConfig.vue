@@ -13,6 +13,7 @@ const editingCard = ref<DashboardCardData | null>(null);
 const form = ref({
   title: '', queryConfigId: 0, displayType: 'number',
   icon: '', color: '#00603D', unit: '', sortOrder: 0, width: 6, isEnabled: true,
+  compareMode: '' as string,
 });
 
 async function loadData() {
@@ -33,10 +34,11 @@ function openDialog(card?: DashboardCardData) {
       title: card.title, queryConfigId: card.queryConfigId, displayType: card.displayType,
       icon: card.icon || '', color: card.color || '#00603D', unit: card.unit || '',
       sortOrder: card.sortOrder, width: card.width, isEnabled: card.isEnabled,
+      compareMode: card.compareMode || '',
     };
   } else {
     editingCard.value = null;
-    form.value = { title: '', queryConfigId: 0, displayType: 'number', icon: '', color: '#00603D', unit: '', sortOrder: cards.value.length, width: 6, isEnabled: true };
+    form.value = { title: '', queryConfigId: 0, displayType: 'number', icon: '', color: '#00603D', unit: '', sortOrder: cards.value.length, width: 6, isEnabled: true, compareMode: '' };
   }
   dialogVisible.value = true;
 }
@@ -160,6 +162,12 @@ onMounted(loadData);
           <el-select v-model="form.unit" placeholder="选择单位" clearable filterable
             style="width:100%">
             <el-option v-for="u in unitOptions" :key="u" :label="u" :value="u" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="对比模式">
+          <el-select v-model="form.compareMode" placeholder="不对比" clearable style="width:100%">
+            <el-option value="mom" label="环比（月环比）" />
+            <el-option value="yoy" label="同比（年同比）" />
           </el-select>
         </el-form-item>
         <el-form-item label="宽度">

@@ -12,7 +12,8 @@ export interface DashboardCardData {
   sortOrder: number;
   width: number;
   isEnabled: boolean;
-  data?: { value?: string; rows?: unknown[]; columns?: string[]; total?: number; error?: string };
+  compareMode?: string | null;
+  data?: { value?: string; compareLabel?: string; changePct?: number; rows?: unknown[]; columns?: string[]; total?: number; error?: string };
 }
 
 export interface DashboardFilter {
