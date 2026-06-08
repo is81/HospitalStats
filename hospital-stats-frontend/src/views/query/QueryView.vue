@@ -3,7 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { queryApi, type QueryConfigDetail } from '../../api/query';
-import { executeApi, type QueryResult, type HistoryEntry } from '../../api/execute';
+import { executeApi, type QueryResult } from '../../api/execute';
 import * as echarts from 'echarts';
 
 const route = useRoute();
@@ -16,18 +16,8 @@ const filterOperators = ref<Record<string, string>>({});
 const filterOptions = ref<Record<string, string[]>>({});
 const result = ref<QueryResult | null>(null);
 const loading = ref(false);
-const history = ref<HistoryEntry[]>([]);
-const showHistory = ref(false);
 const chartRef = ref<HTMLDivElement>();
 let chartInstance: echarts.ECharts | null = null;
-
-async function loadHistory() {
-  try {
-    const res = await executeApi.getHistory(10);
-    history.value = res.data;
-    showHistory.value = true;
-  } catch { ElMessage.error('加载历史失败'); }
-}
 
 const page = ref(1);
 
@@ -192,22 +182,6 @@ onUnmounted(() => { chartInstance?.dispose(); });
       <span v-if="result" style="color: #909399; font-size: 13px">
         共 {{ result.total }} 条，耗时 {{ result.elapsedMs }}ms
       </span>
-      <el-popover placement="bottom" :width="320" :visible="showHistory" @update:visible="(v: boolean) => showHistory = v">
-        <template #reference>
-          <el-button size="small" text @click="loadHistory">查询历史</el-button>
-        </template>
-        <div style="max-height: 360px; overflow-y: auto">
-          <div v-if="history.length === 0" style="color:#909399;font-size:13px;text-align:center;padding:20px">暂无记录</div>
-          <div v-for="h in history" :key="h.id"
-            style="padding:8px 0;border-bottom:1px solid #f0f0f0;cursor:pointer;font-size:13px"
-            @click="router.push({ name: 'query-view', params: { configId: h.queryConfigId } }); showHistory = false">
-            <div style="color:#303133;font-weight:500">{{ h.queryConfigName }}</div>
-            <div style="color:#909399;margin-top:2px">
-              {{ h.executedAt?.slice(0, 16)?.replace('T', ' ') }} · {{ h.rowCount }} 行 · {{ h.elapsedMs }}ms
-            </div>
-          </div>
-        </div>
-      </el-popover>
     </div>
 
     <!-- Filter Form -->

@@ -112,6 +112,7 @@ async function handleChangePassword() {
           <el-menu-item index="/admin/users">用户管理</el-menu-item>
           <el-menu-item index="/admin/roles">角色管理</el-menu-item>
           <el-menu-item index="/admin/settings">配置管理</el-menu-item>
+          <el-menu-item index="/admin/history">查询历史</el-menu-item>
         </el-sub-menu>
       </el-menu>
       <div class="sidebar-footer">
@@ -224,9 +225,10 @@ async function handleChangePassword() {
 .logo-title {
   color: #f1f5f9;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.05em;
   line-height: 1.3;
+  white-space: nowrap;
 }
 :deep(.el-menu) {
   border-right: none;

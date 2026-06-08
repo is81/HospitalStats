@@ -96,6 +96,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('../views/admin/Settings.vue'),
         meta: { title: '配置管理', admin: true },
       },
+      {
+        path: 'admin/history',
+        name: 'AdminHistory',
+        component: () => import('../views/admin/QueryHistory.vue'),
+        meta: { title: '查询历史', admin: true },
+      },
     ],
   },
 ];

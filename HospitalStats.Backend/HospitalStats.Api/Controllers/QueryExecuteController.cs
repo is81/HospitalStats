@@ -85,16 +85,10 @@ public class QueryExecuteController : ControllerBase
         }
     }
     [HttpGet("history")]
+    [Authorize(Roles = "admin")]
     public async Task<ActionResult> GetHistory([FromQuery] int limit = 20)
     {
-        var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        int.TryParse(userIdClaim, out var uid);
-
-        var query = _db.QueryHistories.AsQueryable();
-        if (uid > 0)
-            query = query.Where(h => h.UserId == uid);
-
-        var history = await query
+        var history = await _db.QueryHistories
             .OrderByDescending(h => h.ExecutedAt)
             .Take(Math.Min(limit, 100))
             .Select(h => new
