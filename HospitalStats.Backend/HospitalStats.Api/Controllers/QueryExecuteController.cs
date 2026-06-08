@@ -89,6 +89,7 @@ public class QueryExecuteController : ControllerBase
     public async Task<ActionResult> GetHistory([FromQuery] int limit = 20)
     {
         var history = await _db.QueryHistories
+            .Include(h => h.User)
             .OrderByDescending(h => h.ExecutedAt)
             .Take(Math.Min(limit, 100))
             .Select(h => new
@@ -96,6 +97,7 @@ public class QueryExecuteController : ControllerBase
                 h.Id,
                 h.QueryConfigId,
                 h.QueryConfigName,
+                UserName = h.User != null ? h.User.DisplayName : "-",
                 h.ExecutedAt,
                 h.RowCount,
                 h.ElapsedMs

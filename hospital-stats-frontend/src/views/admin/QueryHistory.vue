@@ -29,7 +29,8 @@ onMounted(loadHistory);
 
     <div style="background:#fff;padding:16px;border-radius:4px" v-loading="loading">
       <el-table :data="history" stripe>
-        <el-table-column prop="queryConfigName" label="查询配置" min-width="180" />
+        <el-table-column prop="queryConfigName" label="查询配置" min-width="140" />
+        <el-table-column prop="userName" label="用户" width="100" />
         <el-table-column prop="executedAt" label="执行时间" width="160">
           <template #default="{ row }">
             {{ row.executedAt?.slice(0, 16)?.replace('T', ' ') }}

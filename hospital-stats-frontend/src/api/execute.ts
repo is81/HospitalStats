@@ -13,6 +13,7 @@ export interface HistoryEntry {
   id: number;
   queryConfigId: number;
   queryConfigName: string;
+  userName?: string;
   executedAt: string;
   rowCount: number;
   elapsedMs: number;
