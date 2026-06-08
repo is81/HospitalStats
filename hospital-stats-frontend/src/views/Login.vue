@@ -18,8 +18,13 @@ async function handleLogin() {
   try {
     await authStore.login(username.value, password.value);
     ElMessage.success('登录成功');
-  } catch {
-    ElMessage.error('用户名或密码错误');
+  } catch (err: any) {
+    const status = err.response?.status;
+    if (!err.response || status === 502 || status === 503 || status === 504) {
+      ElMessage.error('无法连接服务器，请检查后端是否启动');
+    } else {
+      ElMessage.error(err.response?.data?.message || '用户名或密码错误');
+    }
   } finally {
     loading.value = false;
   }
@@ -53,10 +58,8 @@ async function handleLogin() {
           </el-button>
         </el-form-item>
       </el-form>
-      <div class="login-footer">
+      <div class="login-footer" @click="showVersion = true" style="cursor: pointer">
         Design by 信息科 ZT
-        <span style="margin: 0 6px; color: #475569">|</span>
-        <el-button text size="small" @click="showVersion = true" class="version-btn">版本</el-button>
       </div>
     </div>
   </div>
@@ -153,9 +156,6 @@ async function handleLogin() {
   margin-top: 28px;
 }
 .version-link { color: #94a3b8; text-decoration: none; }
-.version-link:hover { color: #2dd4bf; }
-.version-btn { color: #94a3b8 !important; padding: 2px 6px; font-size: 12px; }
-.version-btn:hover { color: #2dd4bf !important; }
 .version-content { display: flex; flex-direction: column; gap: 24px; padding: 8px 16px 4px; }
 .version-block { position: relative; padding-left: 20px; border-left: 2px solid #e2e8f0; }
 .version-badge {
