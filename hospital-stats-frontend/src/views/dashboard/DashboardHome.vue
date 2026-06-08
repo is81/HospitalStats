@@ -59,6 +59,7 @@ function activeDateFrom() {
 }
 
 function switchTab(tab: 'core' | 'trend') {
+  allCards.value = [];
   activeTab.value = tab;
   filters.value = {
     dateFrom: activeDateFrom(),
