@@ -58,7 +58,7 @@ async function handleLogin() {
           </el-button>
         </el-form-item>
       </el-form>
-      <div class="login-footer" @click="showVersion = true" style="cursor: pointer">
+      <div class="login-footer" @click="showVersion = true">
         Design by 信息科 ZT
       </div>
     </div>
@@ -154,7 +154,10 @@ async function handleLogin() {
   font-size: 11px;
   letter-spacing: 2px;
   margin-top: 28px;
+  cursor: pointer;
+  transition: color 0.2s;
 }
+.login-footer:hover { color: #2dd4bf; }
 .version-link { color: #94a3b8; text-decoration: none; }
 .version-content { display: flex; flex-direction: column; gap: 24px; padding: 8px 16px 4px; }
 .version-block { position: relative; padding-left: 20px; border-left: 2px solid #e2e8f0; }
