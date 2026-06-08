@@ -58,34 +58,53 @@ onMounted(load);
       <span style="font-size:18px;font-weight:600">配置管理</span>
     </div>
 
-    <div style="background:#fff;padding:24px;border-radius:8px;max-width:600px" v-loading="loading">
-      <el-form label-width="180px">
-        <el-form-item label="查询超时(秒)">
-          <el-input-number v-model="form.QueryTimeoutSeconds" :min="10" :max="600" />
-          <span style="color:#909399;font-size:12px;margin-left:8px">默认 120</span>
-        </el-form-item>
-        <el-form-item label="最大行数限制">
-          <el-input-number v-model="form.MaxRowCount" :min="1000" :max="500000" :step="10000" />
-          <span style="color:#909399;font-size:12px;margin-left:8px">超出弹窗提醒，默认 50000</span>
-        </el-form-item>
-        <el-divider />
-        <el-form-item label="仪表盘日期列">
-          <el-input v-model="form.DashboardDateColumns" placeholder="逗号分隔" />
-          <span style="color:#909399;font-size:12px;margin-left:8px">用于匹配日期筛选器</span>
-        </el-form-item>
-        <el-form-item label="仪表盘默认起始日">
-          <el-input-number v-model="form.DashboardDefaultDays" :min="0" :max="365" />
-          <span style="color:#909399;font-size:12px;margin-left:8px">核心指标标签页，向前推 N 天</span>
-        </el-form-item>
-        <el-form-item label="趋势对比默认起始日">
-          <el-input-number v-model="form.TrendDefaultDays" :min="1" :max="365" />
-          <span style="color:#909399;font-size:12px;margin-left:8px">趋势对比标签页，向前推 N 天，默认 30</span>
-        </el-form-item>
-        <el-form-item label="查询历史保留条数">
-          <el-input-number v-model="form.HistoryLimit" :min="1000" :max="200000" :step="10000" />
-          <span style="color:#909399;font-size:12px;margin-left:8px">超出自动删除旧记录，默认 50000</span>
-        </el-form-item>
-      </el-form>
+    <div v-loading="loading" style="display:flex;flex-direction:column;gap:16px;max-width:600px">
+
+      <!-- 查询设置 -->
+      <div style="background:#fff;padding:20px 24px;border-radius:8px">
+        <div style="font-size:14px;font-weight:600;color:#303133;margin-bottom:12px">查询设置</div>
+        <el-form label-width="160px">
+          <el-form-item label="查询超时(秒)">
+            <el-input-number v-model="form.QueryTimeoutSeconds" :min="10" :max="600" size="small" />
+            <span style="color:#909399;font-size:12px;margin-left:8px">默认 120</span>
+          </el-form-item>
+          <el-form-item label="最大行数限制">
+            <el-input-number v-model="form.MaxRowCount" :min="1000" :max="500000" :step="10000" size="small" />
+            <span style="color:#909399;font-size:12px;margin-left:8px">超出弹窗提醒，默认 50000</span>
+          </el-form-item>
+        </el-form>
+      </div>
+
+      <!-- 仪表盘设置 -->
+      <div style="background:#fff;padding:20px 24px;border-radius:8px">
+        <div style="font-size:14px;font-weight:600;color:#303133;margin-bottom:12px">仪表盘设置</div>
+        <el-form label-width="160px">
+          <el-form-item label="日期列匹配">
+            <el-input v-model="form.DashboardDateColumns" placeholder="逗号分隔" size="small" style="width:340px" />
+            <span style="color:#909399;font-size:12px;margin-left:8px">用于匹配筛选器</span>
+          </el-form-item>
+          <el-form-item label="核心指标默认起始日">
+            <el-input-number v-model="form.DashboardDefaultDays" :min="0" :max="365" size="small" />
+            <span style="color:#909399;font-size:12px;margin-left:8px">向前推 N 天，0=今天</span>
+          </el-form-item>
+          <el-form-item label="趋势对比默认起始日">
+            <el-input-number v-model="form.TrendDefaultDays" :min="1" :max="365" size="small" />
+            <span style="color:#909399;font-size:12px;margin-left:8px">向前推 N 天，默认 30</span>
+          </el-form-item>
+        </el-form>
+      </div>
+
+      <!-- 历史设置 -->
+      <div style="background:#fff;padding:20px 24px;border-radius:8px">
+        <div style="font-size:14px;font-weight:600;color:#303133;margin-bottom:12px">查询历史</div>
+        <el-form label-width="160px">
+          <el-form-item label="保留条数">
+            <el-input-number v-model="form.HistoryLimit" :min="1000" :max="200000" :step="10000" size="small" />
+            <span style="color:#909399;font-size:12px;margin-left:8px">超出自动删除旧记录，默认 50000</span>
+          </el-form-item>
+        </el-form>
+      </div>
+
     </div>
 
     <div style="max-width:600px;display:flex;justify-content:flex-end;margin-top:12px">
