@@ -22,6 +22,7 @@ public class AppDbContext : DbContext
     public DbSet<UserRole> UserRoles => Set<UserRole>();
     public DbSet<DashboardCard> DashboardCards => Set<DashboardCard>();
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
+    public DbSet<QueryHistory> QueryHistories => Set<QueryHistory>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -1,6 +1,8 @@
+using HospitalStats.Api.Data;
 using HospitalStats.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace HospitalStats.Api.Controllers;
 
@@ -10,11 +12,13 @@ namespace HospitalStats.Api.Controllers;
 public class QueryExecuteController : ControllerBase
 {
     private readonly QueryExecutionService _executor;
+    private readonly AppDbContext _db;
     private readonly ILogger<QueryExecuteController> _logger;
 
-    public QueryExecuteController(QueryExecutionService executor, ILogger<QueryExecuteController> logger)
+    public QueryExecuteController(QueryExecutionService executor, AppDbContext db, ILogger<QueryExecuteController> logger)
     {
         _executor = executor;
+        _db = db;
         _logger = logger;
     }
 
@@ -79,6 +83,32 @@ public class QueryExecuteController : ControllerBase
             _logger.LogError(ex, "Excel export failed for config {ConfigId}", configId);
             return BadRequest(new { message = $"导出失败: {ex.Message}" });
         }
+    }
+    [HttpGet("history")]
+    public async Task<ActionResult> GetHistory([FromQuery] int limit = 20)
+    {
+        var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        int.TryParse(userIdClaim, out var uid);
+
+        var query = _db.QueryHistories.AsQueryable();
+        if (uid > 0)
+            query = query.Where(h => h.UserId == uid);
+
+        var history = await query
+            .OrderByDescending(h => h.ExecutedAt)
+            .Take(Math.Min(limit, 100))
+            .Select(h => new
+            {
+                h.Id,
+                h.QueryConfigId,
+                h.QueryConfigName,
+                h.ExecutedAt,
+                h.RowCount,
+                h.ElapsedMs
+            })
+            .ToListAsync();
+
+        return Ok(history);
     }
 }
 

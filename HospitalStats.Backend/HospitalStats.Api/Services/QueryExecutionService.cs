@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Oracle.ManagedDataAccess.Client;
 
 namespace HospitalStats.Api.Services;
@@ -39,9 +40,12 @@ public class QueryExecutionService
         "CREATE", "ALTER", "DROP", "TABLE", "VIEW", "INTO"
     };
 
+    private readonly IServiceScopeFactory _scopeFactory;
+
     public QueryExecutionService(AppDbContext db, DataSourceService dsService,
         IMemoryCache cache, ILogger<QueryExecutionService> logger,
-        IHttpContextAccessor httpContextAccessor, SystemSettingsService settingsService, IConfiguration config)
+        IHttpContextAccessor httpContextAccessor, SystemSettingsService settingsService,
+        IServiceScopeFactory scopeFactory, IConfiguration config)
     {
         _db = db;
         _dsService = dsService;
@@ -49,6 +53,7 @@ public class QueryExecutionService
         _logger = logger;
         _httpContextAccessor = httpContextAccessor;
         _settingsService = settingsService;
+        _scopeFactory = scopeFactory;
     }
 
     public async Task<QueryResult> ExecuteAsync(int configId, Dictionary<string, string> filters,
@@ -261,6 +266,37 @@ public class QueryExecutionService
 
         // cache for 2 minutes
         _cache.Set(cacheKey, result, TimeSpan.FromMinutes(2));
+
+        // Record query history (fire-and-forget, don't slow down the response)
+        var captureConfigId = configId;
+        var captureConfigName = config.Name;
+        var captureTotal = total;
+        var captureElapsed = sw.ElapsedMilliseconds;
+        var captureFilters = filters.Count > 0
+            ? System.Text.Json.JsonSerializer.Serialize(filters)
+            : null;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                using var histScope = _scopeFactory.CreateScope();
+                var histDb = histScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                int.TryParse(userIdClaim, out var uid);
+                histDb.QueryHistories.Add(new Models.QueryHistory
+                {
+                    UserId = uid > 0 ? uid : null,
+                    QueryConfigId = captureConfigId,
+                    QueryConfigName = captureConfigName[..Math.Min(captureConfigName.Length, 200)],
+                    FiltersJson = captureFilters,
+                    ExecutedAt = DateTime.UtcNow,
+                    RowCount = captureTotal,
+                    ElapsedMs = captureElapsed
+                });
+                await histDb.SaveChangesAsync();
+            }
+            catch { /* never let history recording break the query */ }
+        });
 
         return result;
     }

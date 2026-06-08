@@ -689,6 +689,7 @@ public class QueryExecutionServiceTests
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { ["QueryTimeoutSeconds"] = "120" })
             .Build();
+        var mockScopeFactory = new Mock<IServiceScopeFactory>();
         var mockSettings = new Mock<SystemSettingsService>(null as IServiceScopeFactory);
         mockSettings.Setup(s => s.GetIntAsync(It.IsAny<string>(), It.IsAny<int>()))
             .ReturnsAsync((string key, int def) => key == "QueryTimeoutSeconds" ? 120 : 50000);
@@ -697,6 +698,7 @@ public class QueryExecutionServiceTests
             mockLogger.Object,
             httpContextAccessor ?? CreateHttpContextAccessor(),
             mockSettings.Object,
+            mockScopeFactory.Object,
             config);
     }
 
