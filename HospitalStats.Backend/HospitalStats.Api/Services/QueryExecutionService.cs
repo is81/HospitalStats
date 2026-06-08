@@ -291,7 +291,7 @@ public class QueryExecutionService
                     QueryConfigId = captureConfigId,
                     QueryConfigName = captureConfigName[..Math.Min(captureConfigName.Length, 200)],
                     FiltersJson = captureFilters,
-                    ExecutedAt = DateTime.UtcNow,
+                    ExecutedAt = DateTime.Now,
                     RowCount = captureTotal,
                     ElapsedMs = captureElapsed
                 });
