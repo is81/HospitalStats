@@ -296,6 +296,19 @@ public class QueryExecutionService
                     ElapsedMs = captureElapsed
                 });
                 await histDb.SaveChangesAsync();
+
+                // Cleanup old records exceeding the limit
+                var histLimit = await _settingsService.GetIntAsync("HistoryLimit", 50000);
+                var totalCount = await histDb.QueryHistories.CountAsync();
+                if (totalCount > histLimit)
+                {
+                    var toDelete = await histDb.QueryHistories
+                        .OrderBy(h => h.ExecutedAt)
+                        .Take(totalCount - histLimit)
+                        .ToListAsync();
+                    histDb.QueryHistories.RemoveRange(toDelete);
+                    await histDb.SaveChangesAsync();
+                }
             }
             catch { /* never let history recording break the query */ }
         });

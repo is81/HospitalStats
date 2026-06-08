@@ -172,6 +172,7 @@ try
         // Seed default system settings
         SeedIfMissing(db, "QueryTimeoutSeconds", "120");
         SeedIfMissing(db, "MaxRowCount", "50000");
+        SeedIfMissing(db, "HistoryLimit", "50000");
     }
 
     // Global exception handling
