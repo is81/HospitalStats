@@ -267,7 +267,8 @@ public class QueryExecutionService
 
     public async Task<byte[]> ExportExcelAsync(int configId, Dictionary<string, string> filters)
     {
-        var result = await ExecuteAsync(configId, filters, 1, 50000);
+        var maxExportRows = await _settingsService.GetIntAsync("MaxRowCount", 50000);
+        var result = await ExecuteAsync(configId, filters, 1, maxExportRows);
         using var workbook = new ClosedXML.Excel.XLWorkbook();
         var ws = workbook.Worksheets.Add("查询结果");
 
