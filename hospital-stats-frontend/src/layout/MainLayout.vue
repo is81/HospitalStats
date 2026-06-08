@@ -71,6 +71,7 @@ async function handleChangePassword() {
         <img src="/mini_logo.png" class="logo-img" alt="logo" />
         <span class="logo-title">医院数据统计平台</span>
       </div>
+      <div class="menu-scroll">
       <el-menu
         :default-active="activeMenu"
         background-color="#0f172a"
@@ -115,6 +116,7 @@ async function handleChangePassword() {
           <el-menu-item index="/admin/history">查询历史</el-menu-item>
         </el-sub-menu>
       </el-menu>
+    </div>
       <div class="sidebar-footer">
         Design by 信息科 ZT |
         <a href="#" @click.prevent="showVersion = true" class="version-link">版本</a>
@@ -198,6 +200,13 @@ async function handleChangePassword() {
   background: #0f172a !important;
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.menu-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 40px;
 }
 .app-sidebar::after {
   content: '';
