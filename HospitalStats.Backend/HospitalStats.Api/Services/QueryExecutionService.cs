@@ -57,7 +57,7 @@ public class QueryExecutionService
     }
 
     public async Task<QueryResult> ExecuteAsync(int configId, Dictionary<string, string> filters,
-        int page = 1, int? pageSize = null)
+        int page = 1, int? pageSize = null, bool recordHistory = true)
     {
         var config = await _db.QueryConfigs
             .Include(q => q.MainTable).ThenInclude(t => t!.DataSource)
@@ -268,6 +268,8 @@ public class QueryExecutionService
         _cache.Set(cacheKey, result, TimeSpan.FromMinutes(2));
 
         // Record query history (fire-and-forget, don't slow down the response)
+        if (recordHistory)
+        {
         var captureConfigId = configId;
         var captureConfigName = config.Name;
         var captureTotal = total;
@@ -297,6 +299,7 @@ public class QueryExecutionService
             }
             catch { /* never let history recording break the query */ }
         });
+        } // recordHistory
 
         return result;
     }
@@ -304,7 +307,7 @@ public class QueryExecutionService
     public async Task<byte[]> ExportExcelAsync(int configId, Dictionary<string, string> filters)
     {
         var maxExportRows = await _settingsService.GetIntAsync("MaxRowCount", 50000);
-        var result = await ExecuteAsync(configId, filters, 1, maxExportRows);
+        var result = await ExecuteAsync(configId, filters, 1, maxExportRows, recordHistory: false);
         using var workbook = new ClosedXML.Excel.XLWorkbook();
         var ws = workbook.Worksheets.Add("查询结果");
 

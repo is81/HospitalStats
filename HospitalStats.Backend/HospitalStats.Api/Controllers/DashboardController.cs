@@ -89,7 +89,7 @@ public class DashboardController : ControllerBase
                 var queryResult = await _executor.ExecuteAsync(
                     card.QueryConfigId.Value,
                     filterDict,
-                    1, 100);
+                    1, 100, recordHistory: false);
 
                 if (card.DisplayType == "number" && queryResult.Rows.Count > 0)
                 {
@@ -109,7 +109,7 @@ public class DashboardController : ControllerBase
                         {
                             try
                             {
-                                var prevResult = await _executor.ExecuteAsync(card.QueryConfigId.Value, prevFilterDict, 1, 1);
+                                var prevResult = await _executor.ExecuteAsync(card.QueryConfigId.Value, prevFilterDict, 1, 1, recordHistory: false);
                                 if (prevResult.Rows.Count > 0)
                                 {
                                     var prevRow = prevResult.Rows[0];
