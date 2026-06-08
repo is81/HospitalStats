@@ -117,10 +117,6 @@ async function handleChangePassword() {
         </el-sub-menu>
       </el-menu>
     </div>
-      <div class="sidebar-footer">
-        Design by 信息科 ZT |
-        <a href="#" @click.prevent="showVersion = true" class="version-link">版本</a>
-      </div>
     </el-aside>
     <el-container>
       <el-header class="app-header">
@@ -252,18 +248,6 @@ async function handleChangePassword() {
 :deep(.el-sub-menu__title:hover) {
   background-color: rgba(45, 212, 191, 0.08) !important;
 }
-.sidebar-footer {
-  position: absolute;
-  bottom: 14px;
-  width: 100%;
-  text-align: center;
-  color: rgba(148, 163, 184, 0.4);
-  font-size: 10px;
-  letter-spacing: 2px;
-  z-index: 1;
-}
-.version-link { color: rgba(148,163,184,0.5); text-decoration: none; }
-.version-link:hover { color: #2dd4bf; }
 .version-content { display: flex; flex-direction: column; gap: 24px; padding: 8px 16px 4px; }
 .version-block { position: relative; padding-left: 20px; border-left: 2px solid #e2e8f0; }
 .version-badge {
