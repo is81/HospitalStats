@@ -349,7 +349,7 @@ onUnmounted(() => {
 .card-table th { background: #f5f7fa; padding: 6px 8px; text-align: left; border-bottom: 1px solid #ebeef5; white-space: nowrap; }
 .card-table td { padding: 5px 8px; border-bottom: 1px solid #ebeef5; white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
 
-.tab-switch { font-size: 14px; color: #909399; cursor: pointer; transition: color 0.2s; }
+.tab-switch { font-size: 14px; color: #909399; cursor: pointer; transition: color 0.2s; padding-bottom: 2px; }
 .tab-switch:hover { color: #0d9488; }
-.tab-switch.active { color: #0d9488; font-weight: 600; }
+.tab-switch.active { color: #0d9488; font-weight: 600; border-bottom: 2px solid #0d9488; }
 </style>
