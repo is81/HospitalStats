@@ -48,9 +48,8 @@ onMounted(load);
 
 <template>
   <div>
-    <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
+    <div style="margin-bottom:20px">
       <span style="font-size:18px;font-weight:600">配置管理</span>
-      <el-button type="primary" :loading="saving" @click="save">保存</el-button>
     </div>
 
     <div style="background:#fff;padding:24px;border-radius:8px;max-width:600px" v-loading="loading">
@@ -71,6 +70,9 @@ onMounted(load);
         <el-form-item label="仪表盘默认起始日">
           <el-input-number v-model="form.DashboardDefaultDays" :min="0" :max="365" />
           <span style="color:#909399;font-size:12px;margin-left:8px">向前推 N 天，0=今天，1=昨天</span>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" :loading="saving" @click="save">保存</el-button>
         </el-form-item>
       </el-form>
     </div>
