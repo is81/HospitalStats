@@ -69,7 +69,7 @@ async function handleChangePassword() {
     <el-aside width="220px" class="app-sidebar">
       <div class="logo">
         <img src="/mini_logo.png" class="logo-img" alt="logo" />
-        <el-tooltip content="Design by 信息科 ZT" placement="bottom" effect="light">
+        <el-tooltip content="Design by 信息科 ZT" placement="bottom" effect="dark">
           <span class="logo-title">医院数据统计平台</span>
         </el-tooltip>
       </div>
