@@ -194,8 +194,8 @@ async function handleChangePassword() {
 </template>
 
 <style>
-.logo-tip { font-size: 11px !important; padding: 4px 8px !important; }
-.logo-tip.is-dark { background: rgba(0,0,0,0.55) !important; color: #cbd5e1 !important; }
+.logo-tip { font-size: 11px !important; padding: 2px 6px !important; border: none !important; }
+.logo-tip.is-dark { background: transparent !important; color: #94a3b8 !important; box-shadow: none !important; }
 </style>
 <style scoped>
 .app-sidebar {
