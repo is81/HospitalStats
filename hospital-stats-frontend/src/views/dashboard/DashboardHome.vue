@@ -14,20 +14,22 @@ function localDate(d: Date): string {
 
 const activeTab = ref<'core' | 'trend'>('core');
 const defaultDays = ref(1);
-const trendDays = ref(30);
 
 function coreDateFrom() {
   const d = new Date();
   d.setDate(d.getDate() - defaultDays.value);
   return localDate(d);
 }
-function trendDateFrom() {
-  const d = new Date();
-  d.setDate(d.getDate() - trendDays.value);
-  return localDate(d);
+function coreDateTo() {
+  return localDate(new Date()); // 今天
 }
-function defaultDateTo() {
-  return localDate(new Date());
+function trendDateFrom() {
+  const now = new Date();
+  return localDate(new Date(now.getFullYear(), now.getMonth() - 1, 1)); // 上月第一天
+}
+function trendDateTo() {
+  const now = new Date();
+  return localDate(new Date(now.getFullYear(), now.getMonth(), 0)); // 上月最后一天
 }
 
 const allCards = ref<DashboardCardData[]>([]);
@@ -36,7 +38,7 @@ const trendCards = computed(() => allCards.value.filter(c => c.compareMode));
 const loading = ref(false);
 const filters = ref<DashboardFilter>({
   dateFrom: coreDateFrom(),
-  dateTo: defaultDateTo(),
+  dateTo: coreDateTo(),
 });
 
 let loadGen = 0;
@@ -58,12 +60,16 @@ function activeDateFrom() {
   return activeTab.value === 'core' ? coreDateFrom() : trendDateFrom();
 }
 
+function activeDateTo() {
+  return activeTab.value === 'core' ? coreDateTo() : trendDateTo();
+}
+
 function switchTab(tab: 'core' | 'trend') {
   allCards.value = [];
   activeTab.value = tab;
   filters.value = {
     dateFrom: activeDateFrom(),
-    dateTo: defaultDateTo(),
+    dateTo: activeDateTo(),
   };
   loadDashboard();
 }
@@ -106,15 +112,16 @@ async function maybeLoadDashboard() {
 function onFilterChange() {
   if (!filters.value.dateFrom || !filters.value.dateTo) {
     filters.value.dateFrom = activeDateFrom();
-    filters.value.dateTo = defaultDateTo();
+    filters.value.dateTo = activeDateTo();
   }
   maybeLoadDashboard();
 }
 
 function quickDate(months: number) {
-  const d = new Date();
-  d.setDate(d.getDate() - months * 30);
-  filters.value = { dateFrom: localDate(d), dateTo: defaultDateTo() };
+  const now = new Date();
+  const dateTo = new Date(now.getFullYear(), now.getMonth(), 0); // 上月最后一天
+  const dateFrom = new Date(now.getFullYear(), now.getMonth() - months, 1); // N 个月前第一天
+  filters.value = { dateFrom: localDate(dateFrom), dateTo: localDate(dateTo) };
   maybeLoadDashboard();
 }
 
@@ -122,10 +129,12 @@ function activePreset() {
   const from = filters.value.dateFrom;
   const to = filters.value.dateTo;
   if (!from || !to) return 0;
-  for (const m of [1, 2, 3]) {
-    const d = new Date();
-    d.setDate(d.getDate() - m * 30);
-    if (localDate(d) === from && defaultDateTo() === to) return m;
+  const now = new Date();
+  const presetTo = localDate(new Date(now.getFullYear(), now.getMonth(), 0));
+  if (to !== presetTo) return 0;
+  for (const m of [1, 2, 3, 12]) {
+    const firstDay = localDate(new Date(now.getFullYear(), now.getMonth() - m, 1));
+    if (firstDay === from) return m;
   }
   return 0;
 }
@@ -215,7 +224,6 @@ onMounted(async () => {
   try {
     const res = await settingsApi.getAll();
     defaultDays.value = Number(res.data.DashboardDefaultDays || '1');
-    trendDays.value = Number(res.data.TrendDefaultDays || '30');
   } catch { /* use defaults */ }
   loadDashboard();
   window.addEventListener('resize', onWindowResize);
@@ -265,10 +273,11 @@ onUnmounted(() => {
         <el-button :type="activePreset() === 1 ? 'primary' : 'default'" @click="quickDate(1)">近1月</el-button>
         <el-button :type="activePreset() === 2 ? 'primary' : 'default'" @click="quickDate(2)">近2月</el-button>
         <el-button :type="activePreset() === 3 ? 'primary' : 'default'" @click="quickDate(3)">近3月</el-button>
+        <el-button :type="activePreset() === 12 ? 'primary' : 'default'" @click="quickDate(12)">近1年</el-button>
       </el-button-group>
       <el-button size="small" @click="loadDashboard" :loading="loading" type="primary">刷新</el-button>
       <span style="font-size: 12px; color: #909399">
-        {{ activeTab === 'core' ? `默认显示前 ${defaultDays} 天` : `默认显示前 ${trendDays} 天` }}，查更多请修改起止日期
+                {{ activeTab === 'core' ? `默认显示昨天 ~ 今天` : `默认显示上一完整日历月` }}，查更多请修改起止日期
       </span>
     </div>
 
