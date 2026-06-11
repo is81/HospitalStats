@@ -899,6 +899,11 @@ var isUnionCount = Regex.IsMatch(rawSql, @"\bUNION\s+(ALL\s+)?SELECT\b", RegexOp
             ? RewriteRawSqlSelectAliases(rawSql, innerAliasMap)
             : rawSql;
 
+        // After SELECT aliases are rewritten, also replace old alias references
+        // in ORDER BY / GROUP BY clauses (e.g. ORDER BY "门诊人次" → ORDER BY "_c0")
+        if (hasNonAsciiAlias)
+            innerSql = RewriteClauseAliases(innerSql, innerAliasMap);
+
         // Parse raw SQL column expressions for fallback type lookup
         var rawSelectExprs = SplitRawSelectColumns(rawSql);
 
@@ -1025,6 +1030,44 @@ var isUnionCount = Regex.IsMatch(rawSql, @"\bUNION\s+(ALL\s+)?SELECT\b", RegexOp
                     @"\s+" + Regex.Escape(alias) + @"\s*$", $" \"{safe}\"");
         }
         return colExpr;
+    }
+
+    /// <summary>Replace old non-ASCII column alias references in ORDER BY and GROUP BY
+    /// clauses after SELECT aliases have been rewritten to safe names.</summary>
+    internal static string RewriteClauseAliases(string sql,
+        Dictionary<string, string> aliasToSafe)
+    {
+        var replacements = aliasToSafe
+            .Where(kv => !string.Equals(kv.Key, kv.Value, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (replacements.Count == 0) return sql;
+
+        var orderByMatch = Regex.Match(sql, @"\bORDER\s+BY\b", RegexOptions.IgnoreCase);
+        var groupByMatch = Regex.Match(sql, @"\bGROUP\s+BY\b", RegexOptions.IgnoreCase);
+
+        var suffixStart = sql.Length;
+        if (groupByMatch.Success) suffixStart = Math.Min(suffixStart, groupByMatch.Index);
+        if (orderByMatch.Success) suffixStart = Math.Min(suffixStart, orderByMatch.Index);
+        if (suffixStart == sql.Length) return sql;
+
+        var prefix = sql[..suffixStart];
+        var suffix = sql[suffixStart..];
+
+        foreach (var (oldAlias, newAlias) in replacements)
+        {
+            // Replace "旧别名" → "新别名" (quoted reference)
+            suffix = Regex.Replace(suffix,
+                $@"""{Regex.Escape(oldAlias)}""",
+                $"\"{newAlias}\"",
+                RegexOptions.IgnoreCase);
+            // Replace bare unquoted reference
+            suffix = Regex.Replace(suffix,
+                $@"\b{Regex.Escape(oldAlias)}\b",
+                $"\"{newAlias}\"",
+                RegexOptions.IgnoreCase);
+        }
+
+        return prefix + suffix;
     }
 
     /// <summary>Split the SELECT clause of raw SQL into column expressions.</summary>
