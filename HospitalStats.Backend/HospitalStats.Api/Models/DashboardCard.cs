@@ -33,5 +33,7 @@ public class DashboardCard
     [MaxLength(10)]
     public string? CompareMode { get; set; }
 
+    public int? DecimalPlaces { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

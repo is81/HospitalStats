@@ -187,13 +187,14 @@ function getIcon(icon: string | null) {
   return map[icon || ''] || '📈';
 }
 
-function formatValue(raw: string | undefined, unit: string | null): string {
+function formatValue(raw: string | undefined, unit: string | null, decimalPlaces?: number | null): string {
   if (raw == null || raw === '' || raw === '-') return '-';
   const n = Number(raw);
   if (isNaN(n)) return raw;
   let v = n;
   if (unit === '万元') v = n / 10000;
-  return v.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const dp = decimalPlaces ?? 2;
+  return v.toLocaleString('zh-CN', { minimumFractionDigits: dp, maximumFractionDigits: dp });
 }
 
 onMounted(async () => {
@@ -262,7 +263,7 @@ onUnmounted(() => {
             <div v-if="card.data?.error" class="card-error">{{ card.data.error }}</div>
             <div v-else-if="card.displayType === 'number'" class="card-value">
               <div style="display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap">
-                <span>{{ formatValue(card.data?.value, card.unit) }}</span>
+                <span>{{ formatValue(card.data?.value, card.unit, card.decimalPlaces) }}</span>
                 <span v-if="card.unit" class="card-unit">{{ card.unit }}</span>
               </div>
               <div v-if="card.data?.compareLabel && card.data?.changePct != null" class="card-compare" :class="card.data.changePct >= 0 ? 'up' : 'down'">

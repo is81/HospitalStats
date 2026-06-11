@@ -78,6 +78,7 @@ public class DashboardCardDto
     public int Width { get; set; } = 6;
     public bool IsEnabled { get; set; }
     public string? CompareMode { get; set; }
+    public int? DecimalPlaces { get; set; }
     public object? Data { get; set; }
 }
 
@@ -106,6 +107,8 @@ public class DashboardCardSaveRequest
 
     [MaxLength(10)]
     public string? CompareMode { get; set; }
+
+    public int? DecimalPlaces { get; set; }
 }
 
 public class DashboardCardOrderRequest

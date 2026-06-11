@@ -13,6 +13,7 @@ export interface DashboardCardData {
   width: number;
   isEnabled: boolean;
   compareMode?: string | null;
+  decimalPlaces?: number | null;
   data?: { value?: string; compareLabel?: string; changePct?: number; rows?: unknown[]; columns?: string[]; total?: number; error?: string };
 }
 
@@ -31,12 +32,14 @@ export const dashboardApi = {
   createCard(data: {
     title: string; queryConfigId: number; displayType: string;
     icon?: string; color?: string; unit?: string; sortOrder: number; width: number; isEnabled: boolean;
+    decimalPlaces?: number | null;
   }) {
     return api.post<DashboardCardData>('/dashboard/cards', data);
   },
   updateCard(id: number, data: {
     title: string; queryConfigId: number; displayType: string;
     icon?: string; color?: string; unit?: string; sortOrder: number; width: number; isEnabled: boolean;
+    decimalPlaces?: number | null;
   }) {
     return api.put(`/dashboard/cards/${id}`, data);
   },

@@ -15,6 +15,7 @@ const form = ref({
   title: '', queryConfigId: 0, displayType: 'number',
   icon: '', color: '#00603D', unit: '', sortOrder: 0, width: 6, isEnabled: true,
   compareMode: '' as string,
+  decimalPlaces: null as number | null,
 });
 
 async function loadData() {
@@ -36,10 +37,11 @@ function openDialog(card?: DashboardCardData) {
       icon: card.icon || '', color: card.color || '#00603D', unit: card.unit || '',
       sortOrder: card.sortOrder, width: card.width, isEnabled: card.isEnabled,
       compareMode: card.compareMode || '',
+      decimalPlaces: card.decimalPlaces ?? null,
     };
   } else {
     editingCard.value = null;
-    form.value = { title: '', queryConfigId: 0, displayType: 'number', icon: '', color: '#00603D', unit: '', sortOrder: cards.value.length, width: 6, isEnabled: true, compareMode: '' };
+    form.value = { title: '', queryConfigId: 0, displayType: 'number', icon: '', color: '#00603D', unit: '', sortOrder: cards.value.length, width: 6, isEnabled: true, compareMode: '', decimalPlaces: null };
   }
   dialogVisible.value = true;
 }
@@ -176,6 +178,10 @@ onMounted(async () => {
             style="width:100%">
             <el-option v-for="u in unitOptions" :key="u" :label="u" :value="u" />
           </el-select>
+        </el-form-item>
+        <el-form-item label="小数位数">
+          <el-input-number v-model="form.decimalPlaces" :min="0" :max="4" size="small" />
+          <span style="color:#909399;font-size:12px;margin-left:8px">留空默认 2 位</span>
         </el-form-item>
         <el-form-item label="对比模式">
           <el-select v-model="form.compareMode" placeholder="不对比" clearable style="width:100%">

@@ -55,7 +55,8 @@ public class DashboardController : ControllerBase
                 SortOrder = card.SortOrder,
                 Width = card.Width,
                 IsEnabled = card.IsEnabled,
-                CompareMode = card.CompareMode
+                CompareMode = card.CompareMode,
+                DecimalPlaces = card.DecimalPlaces
             };
 
             // execute bound query to get data
@@ -216,7 +217,8 @@ public class DashboardController : ControllerBase
             SortOrder = c.SortOrder,
             Width = c.Width,
             IsEnabled = c.IsEnabled,
-            CompareMode = c.CompareMode
+            CompareMode = c.CompareMode,
+            DecimalPlaces = c.DecimalPlaces
         }).ToList();
     }
 
@@ -234,7 +236,8 @@ public class DashboardController : ControllerBase
             SortOrder = req.SortOrder,
             Width = req.Width,
             IsEnabled = req.IsEnabled,
-            CompareMode = req.CompareMode
+            CompareMode = req.CompareMode,
+            DecimalPlaces = req.DecimalPlaces
         };
         _db.DashboardCards.Add(entity);
         await _db.SaveChangesAsync();
@@ -251,7 +254,8 @@ public class DashboardController : ControllerBase
             SortOrder = entity.SortOrder,
             Width = entity.Width,
             IsEnabled = entity.IsEnabled,
-            CompareMode = entity.CompareMode
+            CompareMode = entity.CompareMode,
+            DecimalPlaces = entity.DecimalPlaces
         });
     }
 
@@ -271,6 +275,7 @@ public class DashboardController : ControllerBase
         entity.Width = req.Width;
         entity.IsEnabled = req.IsEnabled;
         entity.CompareMode = req.CompareMode;
+        entity.DecimalPlaces = req.DecimalPlaces;
 
         await _db.SaveChangesAsync();
         return NoContent();
