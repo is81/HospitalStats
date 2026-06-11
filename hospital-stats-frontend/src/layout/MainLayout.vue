@@ -83,7 +83,7 @@ async function handleChangePassword() {
       >
         <el-menu-item index="/dashboard" v-if="authStore.isAdmin">
           <el-icon><Odometer /></el-icon>
-          <span>仪表盘</span>
+          <span>运营数据</span>
         </el-menu-item>
         <el-menu-item index="/datasources" v-if="authStore.isAdmin">
           <el-icon><Monitor /></el-icon>
@@ -111,7 +111,7 @@ async function handleChangePassword() {
             <el-icon><Setting /></el-icon>
             <span>系统管理</span>
           </template>
-          <el-menu-item index="/dashboard/config">仪表盘配置</el-menu-item>
+          <el-menu-item index="/dashboard/config">运营数据配置</el-menu-item>
           <el-menu-item index="/admin/users">用户管理</el-menu-item>
           <el-menu-item index="/admin/roles">角色管理</el-menu-item>
           <el-menu-item index="/admin/settings">配置管理</el-menu-item>

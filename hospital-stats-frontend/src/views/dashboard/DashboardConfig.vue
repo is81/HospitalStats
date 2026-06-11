@@ -4,9 +4,9 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import draggable from 'vuedraggable';
 import { dashboardApi, type DashboardCardData } from '../../api/dashboard';
 import { queryApi, type QueryConfigItem } from '../../api/query';
+import { settingsApi } from '../../api/settings';
 
-const coreCards = ref<DashboardCardData[]>([]);
-const trendCards = ref<DashboardCardData[]>([]);
+const cards = ref<DashboardCardData[]>([]);
 const configs = ref<QueryConfigItem[]>([]);
 const loading = ref(false);
 const dialogVisible = ref(false);
@@ -21,8 +21,7 @@ async function loadData() {
   loading.value = true;
   try {
     const [cRes, qRes] = await Promise.all([dashboardApi.getCards(), queryApi.getConfigs()]);
-    coreCards.value = cRes.data.filter(c => !c.compareMode);
-    trendCards.value = cRes.data.filter(c => c.compareMode);
+    cards.value = cRes.data;
     configs.value = qRes.data;
   } finally {
     loading.value = false;
@@ -40,7 +39,7 @@ function openDialog(card?: DashboardCardData) {
     };
   } else {
     editingCard.value = null;
-    form.value = { title: '', queryConfigId: 0, displayType: 'number', icon: '', color: '#00603D', unit: '', sortOrder: coreCards.value.length + trendCards.value.length, width: 6, isEnabled: true, compareMode: '' };
+    form.value = { title: '', queryConfigId: 0, displayType: 'number', icon: '', color: '#00603D', unit: '', sortOrder: cards.value.length, width: 6, isEnabled: true, compareMode: '' };
   }
   dialogVisible.value = true;
 }
@@ -78,9 +77,8 @@ async function deleteCard(id: number) {
 
 async function onDragEnd() {
   let order = 0;
-  for (const c of coreCards.value) c.sortOrder = order++;
-  for (const c of trendCards.value) c.sortOrder = order++;
-  const ids = [...coreCards.value, ...trendCards.value].map(c => c.id);
+  for (const c of cards.value) c.sortOrder = order++;
+  const ids = cards.value.map(c => c.id);
   try {
     await dashboardApi.updateOrder(ids);
     ElMessage.success('排序已更新');
@@ -104,9 +102,16 @@ const iconOptions = [
   { value: 'calendar', label: '📅 日历' },
   { value: 'doc', label: '📋 文档' },
 ];
-const unitOptions = ['人次', '人', '元', '张', '%', '例', '天', '次', '件'];
+const unitOptions = ref<string[]>([]);
 
-onMounted(loadData);
+onMounted(async () => {
+  await loadData();
+  try {
+    const res = await settingsApi.getAll();
+    const raw = res.data.DashboardUnitOptions || '人次,人,元,万元,张,%,例,天,次,件';
+    unitOptions.value = raw.split(',').map(s => s.trim()).filter(Boolean);
+  } catch { /* use empty */ }
+});
 </script>
 
 <template>
@@ -115,32 +120,7 @@ onMounted(loadData);
       <el-button type="primary" @click="openDialog()">新增卡片</el-button>
     </div>
 
-    <!-- Core indicators -->
-    <div style="margin-bottom: 8px; font-size: 14px; font-weight: 600; color: #303133">核心指标</div>
-    <draggable v-model="coreCards" item-key="id" handle=".drag-handle" @end="onDragEnd" class="config-grid" style="margin-bottom: 24px">
-      <template #item="{ element: card }">
-        <div class="config-card">
-          <div class="config-card-header">
-            <span class="drag-handle" title="拖拽排序">⠿</span>
-            <strong style="flex:1">{{ card.title }}</strong>
-            <span>
-              <el-button size="small" text @click="openDialog(card)">编辑</el-button>
-              <el-button size="small" text type="danger" @click="deleteCard(card.id)">删除</el-button>
-            </span>
-          </div>
-          <div style="font-size:12px; color:#909399; display:flex; align-items:center; gap:8px; flex-wrap:wrap">
-            <span>{{ card.queryConfigName }} | {{ getDisplayLabel(card.displayType) }} | 宽度:{{ card.width }}/24</span>
-            <span :style="{ display:'inline-block',width:'12px',height:'12px',borderRadius:'3px',background:cardColor(card),flexShrink:0 }" :title="cardColor(card)" />
-            <el-tag :type="card.isEnabled ? 'success' : 'info'" size="small">
-              {{ card.isEnabled ? '启用中' : '停用' }}
-            </el-tag>
-          </div>
-        </div>
-      </template>
-    </draggable>
-
-    <div style="margin-bottom: 8px; font-size: 14px; font-weight: 600; color: #303133">趋势对比</div>
-    <draggable v-model="trendCards" item-key="id" handle=".drag-handle" @end="onDragEnd" class="config-grid">
+    <draggable v-model="cards" item-key="id" handle=".drag-handle" @end="onDragEnd" class="config-grid">
       <template #item="{ element: card }">
         <div class="config-card">
           <div class="config-card-header">

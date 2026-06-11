@@ -70,13 +70,13 @@ const routes: RouteRecordRaw[] = [
         path: 'dashboard',
         name: 'DashboardHome',
         component: () => import('../views/dashboard/DashboardHome.vue'),
-        meta: { title: '仪表盘' },
+        meta: { title: '运营数据' },
       },
       {
         path: 'dashboard/config',
         name: 'DashboardConfig',
         component: () => import('../views/dashboard/DashboardConfig.vue'),
-        meta: { title: '仪表盘配置', admin: true },
+        meta: { title: '运营数据配置', admin: true },
       },
       {
         path: 'admin/users',
