@@ -260,7 +260,6 @@ onUnmounted(() => {
             </el-tag>
             <span v-if="card.data?.compareLabel && card.data?.changePct != null" class="card-compare-inline"
               :class="card.data.changePct >= 0 ? 'up' : 'down'">
-              {{ card.data.compareLabel }}
               <span class="arrow">{{ card.data.changePct >= 0 ? '↑' : '↓' }}</span>
               {{ Math.abs(card.data.changePct) }}%
             </span>
