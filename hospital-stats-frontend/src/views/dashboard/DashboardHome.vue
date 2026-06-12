@@ -258,6 +258,12 @@ onUnmounted(() => {
             <el-tag v-if="card.compareMode" size="small" type="warning" style="margin-left: 6px">
               {{ card.compareMode === 'mom' ? '环比' : '同比' }}
             </el-tag>
+            <span v-if="card.data?.compareLabel && card.data?.changePct != null" class="card-compare-inline"
+              :class="card.data.changePct >= 0 ? 'up' : 'down'">
+              {{ card.data.compareLabel }}
+              <span class="arrow">{{ card.data.changePct >= 0 ? '↑' : '↓' }}</span>
+              {{ Math.abs(card.data.changePct) }}%
+            </span>
           </div>
           <div class="card-body">
             <div v-if="card.data?.error" class="card-error">{{ card.data.error }}</div>
@@ -265,11 +271,6 @@ onUnmounted(() => {
               <div style="display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap">
                 <span>{{ formatValue(card.data?.value, card.unit, card.decimalPlaces) }}</span>
                 <span v-if="card.unit" class="card-unit">{{ card.unit }}</span>
-              </div>
-              <div v-if="card.data?.compareLabel && card.data?.changePct != null" class="card-compare" :class="card.data.changePct >= 0 ? 'up' : 'down'">
-                <span>{{ card.data.compareLabel }}</span>
-                <span class="arrow">{{ card.data.changePct >= 0 ? '↑' : '↓' }}</span>
-                <span>{{ Math.abs(card.data.changePct) }}%</span>
               </div>
             </div>
             <div v-else-if="card.displayType === 'bar' || card.displayType === 'line' || card.displayType === 'pie'"
@@ -314,10 +315,10 @@ onUnmounted(() => {
 .card-body { padding: 4px 0; }
 .card-value { font-size: 36px; font-weight: 700; color: #303133; }
 .card-unit { font-size: 14px; color: #909399; margin-left: 4px; }
-.card-compare { display: inline-flex; align-items: center; gap: 3px; font-size: 14px; font-weight: 600; margin-top: 4px; }
-.card-compare.up { color: #10b981; }
-.card-compare.down { color: #ef4444; }
-.card-compare .arrow { font-size: 16px; }
+.card-compare-inline { display: inline-flex; align-items: center; gap: 2px; font-size: 12px; font-weight: 600; margin-left: 6px; white-space: nowrap; }
+.card-compare-inline.up { color: #10b981; }
+.card-compare-inline.down { color: #ef4444; }
+.card-compare-inline .arrow { font-size: 13px; }
 .card-subtitle { font-size: 16px; color: #606266; }
 .card-error { color: #f56c6c; font-size: 13px; }
 .chart-container { position: relative; width: 100%; min-height: 260px; }
