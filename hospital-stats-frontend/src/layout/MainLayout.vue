@@ -84,7 +84,7 @@ async function handleChangePassword() {
         active-text-color="#2dd4bf"
         router
       >
-        <el-menu-item index="/dashboard" v-if="authStore.isAdmin">
+        <el-menu-item index="/dashboard" v-if="authStore.isAdmin || authStore.dashboardAccess">
           <el-icon><Odometer /></el-icon>
           <span>运营数据</span>
         </el-menu-item>

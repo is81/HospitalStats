@@ -9,7 +9,7 @@ const menus = ref<MenuItem[]>([]);
 const loading = ref(false);
 const dialogVisible = ref(false);
 const editingRole = ref<RoleInfo | null>(null);
-const form = ref({ name: '', description: '', menuIds: [] as number[] });
+const form = ref({ name: '', description: '', menuIds: [] as number[], dashboardAccess: false });
 
 async function loadData() {
   loading.value = true;
@@ -35,10 +35,10 @@ function openDialog(role?: RoleInfo) {
   if (role) {
     editingRole.value = role;
     const menuIds = role.menuIds.length > 0 ? [...role.menuIds] : collectAllMenuIds(menus.value);
-    form.value = { name: role.name, description: role.description || '', menuIds };
+    form.value = { name: role.name, description: role.description || '', menuIds, dashboardAccess: role.dashboardAccess || false };
   } else {
     editingRole.value = null;
-    form.value = { name: '', description: '', menuIds: [] };
+    form.value = { name: '', description: '', menuIds: [], dashboardAccess: false };
   }
   dialogVisible.value = true;
 }
@@ -46,7 +46,7 @@ function openDialog(role?: RoleInfo) {
 async function saveRole() {
   if (!form.value.name) { ElMessage.warning('请输入角色名'); return; }
   const isAdmin = editingRole.value?.name === 'admin' || form.value.name === 'admin';
-  const payload = { ...form.value, menuIds: isAdmin ? [] : form.value.menuIds };
+  const payload = { ...form.value, menuIds: isAdmin ? [] : form.value.menuIds, dashboardAccess: isAdmin || form.value.dashboardAccess };
   try {
     if (editingRole.value) {
       await adminApi.updateRole(editingRole.value.id, payload);
@@ -97,6 +97,13 @@ onMounted(loadData);
     <el-table :data="roles" v-loading="loading" border stripe>
       <el-table-column prop="name" label="角色名" width="140" />
       <el-table-column prop="description" label="描述" min-width="150" />
+      <el-table-column label="运营数据" width="100">
+        <template #default="{ row }">
+          <el-tag :type="row.name === 'admin' || row.dashboardAccess ? 'success' : 'info'" size="small">
+            {{ row.name === 'admin' || row.dashboardAccess ? '可访问' : '不可访问' }}
+          </el-tag>
+        </template>
+      </el-table-column>
       <el-table-column label="菜单权限" min-width="300">
         <template #default="{ row }">
           <template v-if="row.name === 'admin'">
@@ -127,6 +134,10 @@ onMounted(loadData);
         </el-form-item>
         <el-form-item label="描述">
           <el-input v-model="form.description" />
+        </el-form-item>
+        <el-form-item label="运营数据">
+          <el-switch v-model="form.dashboardAccess" :disabled="editingRole?.name === 'admin' || form.name === 'admin'" />
+          <span style="color:#909399;font-size:12px;margin-left:8px">允许此角色用户查看运营数据</span>
         </el-form-item>
         <el-form-item label="菜单权限">
           <el-tree

@@ -17,6 +17,7 @@ export const useAuthStore = defineStore('auth', () => {
   const roles = ref<string[]>(safeParseJsonArray('roles', []));
   const menuIds = ref<number[]>(safeParseJsonArray('menuIds', []));
   const deptName = ref(localStorage.getItem('deptName') || '');
+  const dashboardAccess = ref(localStorage.getItem('dashboardAccess') === 'true');
 
   const isLoggedIn = computed(() => !!token.value);
   const isAdmin = computed(() => roles.value.includes('admin'));
@@ -28,11 +29,13 @@ export const useAuthStore = defineStore('auth', () => {
     roles.value = res.data.roles || [];
     menuIds.value = res.data.menuIds || [];
     deptName.value = res.data.deptName || '';
+    dashboardAccess.value = res.data.dashboardAccess === true;
     localStorage.setItem('token', res.data.token);
     localStorage.setItem('displayName', res.data.displayName);
     localStorage.setItem('roles', JSON.stringify(roles.value));
     localStorage.setItem('menuIds', JSON.stringify(menuIds.value));
     localStorage.setItem('deptName', deptName.value);
+    localStorage.setItem('dashboardAccess', dashboardAccess.value ? 'true' : '');
     router.push('/');
   }
 
@@ -42,13 +45,15 @@ export const useAuthStore = defineStore('auth', () => {
     roles.value = [];
     menuIds.value = [];
     deptName.value = '';
+    dashboardAccess.value = false;
     localStorage.removeItem('token');
     localStorage.removeItem('displayName');
     localStorage.removeItem('roles');
     localStorage.removeItem('menuIds');
     localStorage.removeItem('deptName');
+    localStorage.removeItem('dashboardAccess');
     router.push('/login');
   }
 
-  return { token, displayName, roles, menuIds, deptName, isLoggedIn, isAdmin, login, logout };
+  return { token, displayName, roles, menuIds, deptName, dashboardAccess, isLoggedIn, isAdmin, login, logout };
 });

@@ -16,6 +16,7 @@ export interface RoleInfo {
   name: string;
   description: string | null;
   menuIds: number[];
+  dashboardAccess: boolean;
   createdAt: string;
 }
 
@@ -37,10 +38,10 @@ export const adminApi = {
   getRoles() {
     return api.get<RoleInfo[]>('/admin/roles');
   },
-  createRole(data: { name: string; description?: string; menuIds: number[] }) {
+  createRole(data: { name: string; description?: string; menuIds: number[]; dashboardAccess: boolean }) {
     return api.post<RoleInfo>('/admin/roles', data);
   },
-  updateRole(id: number, data: { name: string; description?: string; menuIds: number[] }) {
+  updateRole(id: number, data: { name: string; description?: string; menuIds: number[]; dashboardAccess: boolean }) {
     return api.put(`/admin/roles/${id}`, data);
   },
   deleteRole(id: number) {

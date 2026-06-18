@@ -46,12 +46,16 @@ public class AuthController : ControllerBase
             .ToListAsync();
 
         var token = GenerateJwt(user, roleNames);
+        var dashboardAccess = roleNames.Contains("admin") ||
+            userRoles.Any(ur => ur.Role!.DashboardAccess);
+
         return new LoginResponse
         {
             Token = token,
             DisplayName = user.DisplayName ?? user.Username,
             Roles = roleNames,
             MenuIds = menuIds,
+            DashboardAccess = dashboardAccess,
             DeptName = user.DeptName
         };
     }

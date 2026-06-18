@@ -156,7 +156,8 @@ try
             var adminRole = new HospitalStats.Api.Models.Role
             {
                 Name = "admin",
-                Description = "系统管理员（内置）"
+                Description = "系统管理员（内置）",
+                DashboardAccess = true
             };
             db.Roles.Add(adminRole);
             db.SaveChanges();
@@ -231,6 +232,8 @@ static void MigrateSchema(HospitalStats.Api.Data.AppDbContext db)
     TryAddTable(db, "QueryHistories", "CREATE TABLE IF NOT EXISTS QueryHistories (Id INTEGER PRIMARY KEY AUTOINCREMENT, UserId INTEGER, QueryConfigId INTEGER, QueryConfigName TEXT NOT NULL DEFAULT '', FiltersJson TEXT, ExecutedAt TEXT NOT NULL, RowCount INTEGER NOT NULL DEFAULT 0, ElapsedMs INTEGER NOT NULL DEFAULT 0)");
     // DashboardCards.CompareMode — added 2026-06-08
     TryAddColumn(db, "DashboardCards", "CompareMode", "TEXT");
+    // Roles.DashboardAccess — added 2026-06-12
+    TryAddColumn(db, "Roles", "DashboardAccess", "INTEGER NOT NULL DEFAULT 0");
 }
 
 static void TryAddColumn(HospitalStats.Api.Data.AppDbContext db, string table, string column, string type)

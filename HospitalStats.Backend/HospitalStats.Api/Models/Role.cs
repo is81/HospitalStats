@@ -12,6 +12,8 @@ public class Role
     [MaxLength(200)]
     public string? Description { get; set; }
 
+    public bool DashboardAccess { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public List<RoleMenu> RoleMenus { get; set; } = new();

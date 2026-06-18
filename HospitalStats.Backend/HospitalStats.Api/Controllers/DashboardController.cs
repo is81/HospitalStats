@@ -32,6 +32,15 @@ public class DashboardController : ControllerBase
         [FromQuery] string? dateFrom = null,
         [FromQuery] string? dateTo = null)
     {
+        // Non-admin users need DashboardAccess on at least one role
+        if (!User.IsInRole("admin"))
+        {
+            var userIdStr = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (!int.TryParse(userIdStr, out var uid) ||
+                !await _db.UserRoles.AnyAsync(ur => ur.UserId == uid && ur.Role!.DashboardAccess))
+                return Forbid();
+        }
+
         var cards = await _db.DashboardCards
             .Include(d => d.QueryConfig).ThenInclude(q => q.Filters).ThenInclude(f => f.MetaColumn)
             .Where(d => d.IsEnabled)

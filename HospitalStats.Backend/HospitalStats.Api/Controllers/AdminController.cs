@@ -142,6 +142,7 @@ public class AdminController : ControllerBase
             Name = r.Name,
             Description = r.Description,
             MenuIds = r.RoleMenus.Select(rm => rm.MenuId).ToList(),
+            DashboardAccess = r.DashboardAccess,
             CreatedAt = r.CreatedAt
         }).ToList();
     }
@@ -150,7 +151,7 @@ public class AdminController : ControllerBase
     public async Task<ActionResult<RoleDto>> CreateRole([FromBody] RoleSaveRequest req)
     {
         using var tx2 = await _db.Database.BeginTransactionAsync();
-        var role = new Role { Name = req.Name, Description = req.Description };
+        var role = new Role { Name = req.Name, Description = req.Description, DashboardAccess = req.DashboardAccess };
         _db.Roles.Add(role);
         await _db.SaveChangesAsync();
 
@@ -163,7 +164,8 @@ public class AdminController : ControllerBase
             Id = role.Id,
             Name = role.Name,
             Description = role.Description,
-            MenuIds = req.MenuIds
+            MenuIds = req.MenuIds,
+            DashboardAccess = role.DashboardAccess
         });
     }
 
@@ -178,6 +180,7 @@ public class AdminController : ControllerBase
 
         role.Name = req.Name;
         role.Description = req.Description;
+        role.DashboardAccess = req.DashboardAccess;
 
         var existingMenus = await _db.RoleMenus.Where(rm => rm.RoleId == id).ToListAsync();
         _db.RoleMenus.RemoveRange(existingMenus);

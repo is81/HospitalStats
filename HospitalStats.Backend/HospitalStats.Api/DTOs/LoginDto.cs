@@ -17,6 +17,7 @@ public class LoginResponse
     public string DisplayName { get; set; } = string.Empty;
     public List<string> Roles { get; set; } = new();
     public List<int> MenuIds { get; set; } = new();
+    public bool DashboardAccess { get; set; }
     public string? DeptName { get; set; }
 }
 

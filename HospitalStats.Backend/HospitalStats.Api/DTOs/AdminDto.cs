@@ -50,6 +50,7 @@ public class RoleDto
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public List<int> MenuIds { get; set; } = new();
+    public bool DashboardAccess { get; set; }
     public DateTime CreatedAt { get; set; }
 }
 
@@ -62,6 +63,7 @@ public class RoleSaveRequest
     [MaxLength(200)]
     public string? Description { get; set; }
     public List<int> MenuIds { get; set; } = new();
+    public bool DashboardAccess { get; set; }
 }
 
 public class DashboardCardDto

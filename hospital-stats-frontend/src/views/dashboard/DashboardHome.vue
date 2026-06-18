@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
+import { ElMessage, ElMessageBox, ElEmpty } from 'element-plus';
 import { dashboardApi, type DashboardCardData, type DashboardFilter } from '../../api/dashboard';
 import { settingsApi } from '../../api/settings';
+import { useAuthStore } from '../../stores/auth';
 import * as echarts from 'echarts';
+
+const authStore = useAuthStore();
+const canAccess = computed(() => authStore.isAdmin || authStore.dashboardAccess);
 
 function localDate(d: Date): string {
   const y = d.getFullYear();
@@ -216,7 +220,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div>
+  <div v-if="canAccess">
     <div style="margin-bottom: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap">
       <span style="font-size: 13px; color: #606266">开始日期</span>
       <el-date-picker
@@ -288,7 +292,10 @@ onUnmounted(() => {
     </div>
 
     <el-empty v-if="!loading && allCards.length === 0"
-      description="暂无卡片，请在仪表盘配置中添加" />
+      description="暂无卡片，请在运营数据配置中添加" />
+  </div>
+  <div v-else style="padding:60px 0;text-align:center">
+    <el-empty description="无权限访问运营数据，请联系管理员" />
   </div>
 </template>
 
