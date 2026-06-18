@@ -205,6 +205,7 @@ onMounted(async () => {
   try {
     const res = await settingsApi.getAll();
     defaultDays.value = Number(res.data.DashboardDefaultDays || '1');
+    filters.value.dateFrom = defaultDateFrom();
   } catch { /* use defaults */ }
   loadDashboard();
   window.addEventListener('resize', onWindowResize);
