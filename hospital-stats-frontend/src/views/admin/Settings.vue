@@ -9,7 +9,6 @@ const form = ref<Record<string, string | number>>({
   QueryTimeoutSeconds: 120,
   MaxRowCount: 50000,
   DashboardDateColumns: 'VISIT_DATE,BILLING_DATE_TIME,DISCHARGE_DATE_TIME,PRESC_DATE',
-  DashboardDefaultDays: 1,
   DashboardUnitOptions: '人次,人,元,万元,张,%,例,天,次,件',
   HistoryLimit: 50000,
 });
@@ -22,7 +21,6 @@ async function load() {
     form.value.MaxRowCount = Number(res.data.MaxRowCount) || 50000;
     form.value.DashboardDateColumns = res.data.DashboardDateColumns ||
       'VISIT_DATE,BILLING_DATE_TIME,DISCHARGE_DATE_TIME,PRESC_DATE';
-    form.value.DashboardDefaultDays = Number(res.data.DashboardDefaultDays || '1');
     form.value.DashboardUnitOptions = res.data.DashboardUnitOptions ||
       '人次,人,元,万元,张,%,例,天,次,件';
     form.value.HistoryLimit = Number(res.data.HistoryLimit || '50000');
@@ -38,7 +36,6 @@ async function save() {
       QueryTimeoutSeconds: String(form.value.QueryTimeoutSeconds),
       MaxRowCount: String(form.value.MaxRowCount),
       DashboardDateColumns: String(form.value.DashboardDateColumns),
-      DashboardDefaultDays: String(form.value.DashboardDefaultDays),
       DashboardUnitOptions: String(form.value.DashboardUnitOptions),
       HistoryLimit: String(form.value.HistoryLimit),
     });
@@ -79,10 +76,6 @@ onMounted(load);
           <el-form-item label="日期列匹配">
             <el-input v-model="form.DashboardDateColumns" placeholder="逗号分隔" size="small" style="width:340px" />
             <span style="color:#909399;font-size:12px;margin-left:8px">用于匹配筛选器</span>
-          </el-form-item>
-          <el-form-item label="运营数据默认起始日">
-            <el-input-number v-model="form.DashboardDefaultDays" :min="0" :max="365" size="small" />
-            <span style="color:#909399;font-size:12px;margin-left:8px">向前推 N 天，0=今天</span>
           </el-form-item>
           <el-form-item label="卡片单位选项">
             <el-input v-model="form.DashboardUnitOptions" placeholder="逗号分隔" size="small" style="width:340px" />

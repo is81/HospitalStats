@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { ElMessage, ElMessageBox, ElEmpty } from 'element-plus';
 import { dashboardApi, type DashboardCardData, type DashboardFilter } from '../../api/dashboard';
-import { settingsApi } from '../../api/settings';
+
 import { useAuthStore } from '../../stores/auth';
 import * as echarts from 'echarts';
 
@@ -16,15 +16,13 @@ function localDate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-const defaultDays = ref(1);
-
 function defaultDateFrom() {
-  const d = new Date();
-  d.setDate(d.getDate() - defaultDays.value);
-  return localDate(d);
+  const now = new Date();
+  return localDate(new Date(now.getFullYear(), now.getMonth() - 1, 1));
 }
 function defaultDateTo() {
-  return localDate(new Date());
+  const now = new Date();
+  return localDate(new Date(now.getFullYear(), now.getMonth(), 0));
 }
 
 const allCards = ref<DashboardCardData[]>([]);
@@ -201,12 +199,7 @@ function formatValue(raw: string | undefined, unit: string | null, decimalPlaces
   return v.toLocaleString('zh-CN', { minimumFractionDigits: dp, maximumFractionDigits: dp });
 }
 
-onMounted(async () => {
-  try {
-    const res = await settingsApi.getAll();
-    defaultDays.value = Number(res.data.DashboardDefaultDays || '1');
-    filters.value.dateFrom = defaultDateFrom();
-  } catch { /* use defaults */ }
+onMounted(() => {
   loadDashboard();
   window.addEventListener('resize', onWindowResize);
 });
@@ -250,7 +243,7 @@ onUnmounted(() => {
         <el-button :type="activePreset() === 12 ? 'primary' : 'default'" @click="quickDate(12)">近1年</el-button>
       </el-button-group>
       <el-button size="small" @click="loadDashboard" :loading="loading" type="primary">刷新</el-button>
-      <span style="font-size: 12px; color: #909399">默认显示 {{ defaultDays === 1 ? '昨天 ~ 今天' : `${defaultDays} 天前 ~ 今天` }}，查更多请修改起止日期</span>
+      <span style="font-size: 12px; color: #909399">默认显示上一完整日历月，查更多请修改起止日期</span>
     </div>
 
     <div class="dash-grid" v-loading="loading">
