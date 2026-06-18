@@ -8,6 +8,8 @@ import { authApi } from '../api/auth';
 const route = useRoute();
 const authStore = useAuthStore();
 
+const isCollapsed = ref(false);
+
 const activeMenu = computed(() => {
   const p = route.path;
   if (p.startsWith('/query/configs')) return '/query/configs';
@@ -66,16 +68,17 @@ async function handleChangePassword() {
 
 <template>
   <el-container style="height: 100vh">
-    <el-aside width="220px" class="app-sidebar">
+    <el-aside :width="isCollapsed ? '64px' : '220px'" class="app-sidebar">
       <div class="logo">
         <img src="/mini_logo.png" class="logo-img" alt="logo" />
         <el-tooltip content="Design by 信息科 ZT" placement="bottom" :offset="4" effect="dark" popper-class="logo-tip">
-          <span class="logo-title">医院数据统计平台</span>
+          <span v-show="!isCollapsed" class="logo-title">医院数据统计平台</span>
         </el-tooltip>
       </div>
       <div class="menu-scroll">
       <el-menu
         :default-active="activeMenu"
+        :collapse="isCollapsed"
         background-color="#0f172a"
         text-color="#94a3b8"
         active-text-color="#2dd4bf"
@@ -119,6 +122,11 @@ async function handleChangePassword() {
         </el-sub-menu>
       </el-menu>
     </div>
+      <div class="collapse-toggle" @click="isCollapsed = !isCollapsed">
+        <el-icon :style="{ transition: 'transform 0.3s', transform: isCollapsed ? 'rotate(180deg)' : '' }">
+          <ArrowLeft />
+        </el-icon>
+      </div>
     </el-aside>
     <el-container>
       <el-header class="app-header">
@@ -209,7 +217,20 @@ async function handleChangePassword() {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding-bottom: 40px;
+}
+.collapse-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  color: #94a3b8;
+  cursor: pointer;
+  transition: color 0.2s;
+  flex-shrink: 0;
+}
+.collapse-toggle:hover {
+  color: #2dd4bf;
 }
 .app-sidebar::after {
   content: '';
