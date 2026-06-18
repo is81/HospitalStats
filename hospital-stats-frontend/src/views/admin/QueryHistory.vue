@@ -22,8 +22,7 @@ onMounted(loadHistory);
 
 <template>
   <div>
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
-      <span style="font-size:18px;font-weight:600">查询历史</span>
+    <div style="margin-bottom:16px">
       <el-button size="small" @click="loadHistory" :loading="loading">刷新</el-button>
     </div>
 

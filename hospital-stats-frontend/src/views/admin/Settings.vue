@@ -55,10 +55,6 @@ onMounted(load);
 
 <template>
   <div>
-    <div style="margin-bottom:20px">
-      <span style="font-size:18px;font-weight:600">配置管理</span>
-    </div>
-
     <div v-loading="loading" style="display:flex;flex-direction:column;gap:16px;max-width:600px">
 
       <!-- 查询设置 -->

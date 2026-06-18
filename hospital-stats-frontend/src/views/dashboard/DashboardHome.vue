@@ -218,7 +218,6 @@ onUnmounted(() => {
 <template>
   <div>
     <div style="margin-bottom: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap">
-      <span style="font-size: 18px; font-weight: 600; margin-right: 4px">运营数据</span>
       <span style="font-size: 13px; color: #606266">开始日期</span>
       <el-date-picker
         v-model="filters.dateFrom"
