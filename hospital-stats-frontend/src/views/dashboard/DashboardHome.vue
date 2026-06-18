@@ -250,7 +250,7 @@ onUnmounted(() => {
         <el-button :type="activePreset() === 12 ? 'primary' : 'default'" @click="quickDate(12)">近1年</el-button>
       </el-button-group>
       <el-button size="small" @click="loadDashboard" :loading="loading" type="primary">刷新</el-button>
-      <span style="font-size: 12px; color: #909399">默认显示昨天 ~ 今天，查更多请修改起止日期</span>
+      <span style="font-size: 12px; color: #909399">默认显示 {{ defaultDays === 1 ? '昨天 ~ 今天' : `${defaultDays} 天前 ~ 今天` }}，查更多请修改起止日期</span>
     </div>
 
     <div class="dash-grid" v-loading="loading">
