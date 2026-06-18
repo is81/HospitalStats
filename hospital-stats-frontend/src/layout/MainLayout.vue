@@ -176,7 +176,7 @@ async function handleChangePassword() {
           <li>UNION 复杂查询全链路（导入→分支筛选注入→中文别名安全化→hex编码）</li>
           <li>Oracle US7ASCII 字符集完整适配（列数据/标识符/行内字面量三层防护）</li>
           <li>筛选条件按 UNION 分支独立注入</li>
-          <li>仪表盘日期筛选栏 + 操作符智能匹配</li>
+          <li>运营数据日期筛选栏 + 操作符智能匹配</li>
           <li>基于角色的菜单权限控制</li>
           <li>IN 多值参数独立绑定</li>
           <li>浏览器兼容（IE 2018+ polyfills）</li>
@@ -190,7 +190,7 @@ async function handleChangePassword() {
           <li>JWT 认证 + BCrypt 密码哈希</li>
           <li>数据源管理（AES-CBC 加密连接串）</li>
           <li>元数据扫描（Oracle Schema 自动发现）</li>
-          <li>仪表盘 8 卡片 + ECharts 图表</li>
+          <li>运营数据 8 卡片 + ECharts 图表</li>
           <li>查询结果 Excel 导出</li>
           <li>SQLite 配置库自动备份</li>
           <li>12 种筛选操作符 + RawSql 导入解析</li>

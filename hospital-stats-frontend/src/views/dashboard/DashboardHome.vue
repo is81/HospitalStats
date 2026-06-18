@@ -56,7 +56,7 @@ async function loadDashboard() {
     await nextTick();
     renderCharts();
   } catch {
-    ElMessage.error('仪表盘加载失败，请检查网络连接');
+    ElMessage.error('运营数据加载失败，请检查网络连接');
   } finally {
     if (gen === loadGen) loading.value = false;
   }

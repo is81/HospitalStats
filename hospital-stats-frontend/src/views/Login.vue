@@ -70,9 +70,9 @@ async function handleLogin() {
         <div class="version-date">2026-06</div>
         <ul>
           <li>开源（MIT）+ 授权模块移除</li>
-          <li>系统配置管理（超时、行数限制、仪表盘参数在线修改）</li>
+          <li>系统配置管理（超时、行数限制、运营数据参数在线修改）</li>
           <li>审计日志（操作记录到 logs/audit-{date}.log）</li>
-          <li>仪表盘弹性网格 + 拖拽排序 + 日期控件联动 + 全局可配</li>
+          <li>运营数据弹性网格 + 拖拽排序 + 日期控件联动 + 全局可配</li>
           <li>查询配置启用/禁用</li>
           <li>菜单禁用灰显（保留入口但不允许查询）</li>
           <li>测试覆盖 184 个（DataSourceService + SystemSettingsService）</li>
@@ -89,7 +89,7 @@ async function handleLogin() {
           <li>JWT 认证 + BCrypt 密码哈希 + RBAC 权限</li>
           <li>数据源管理（AES-CBC 加密连接串 + 在线测试）</li>
           <li>元数据扫描（Oracle Schema 自动发现）</li>
-          <li>仪表盘卡片 + ECharts 图表（数值/柱状图/折线图/饼图）</li>
+          <li>运营数据卡片 + ECharts 图表（数值/柱状图/折线图/饼图）</li>
           <li>查询结果 Excel 导出</li>
           <li>SQLite 配置库自动备份</li>
           <li>14 种筛选操作符 + RawSql 导入解析</li>

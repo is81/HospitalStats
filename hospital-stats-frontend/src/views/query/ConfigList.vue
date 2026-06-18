@@ -76,7 +76,7 @@ onMounted(() => {
         <template #default="{ row }">
           {{ row.name }}
           <el-tag v-if="row.dashboardCardCount > 0" size="small" type="warning"
-            style="margin-left: 6px" title="被仪表盘引用">仪</el-tag>
+            style="margin-left: 6px" title="被运营数据引用">仪</el-tag>
         </template>
       </el-table-column>
       <el-table-column prop="mainTableName" label="主表" min-width="150" />
@@ -146,8 +146,8 @@ onMounted(() => {
         </div>
         <div class="tip-item">
           <div class="tip-body">
-            <div class="tip-title">仪表盘引用</div>
-            <div class="tip-text">配置名称旁有 <el-tag size="small" type="warning">仪</el-tag> 标识表示已被仪表盘卡片引用，删除前需先取消引用。</div>
+            <div class="tip-title">运营数据引用</div>
+            <div class="tip-text">配置名称旁有 <el-tag size="small" type="warning">仪</el-tag> 标识表示已被运营数据卡片引用，删除前需先取消引用。</div>
           </div>
         </div>
       </div>
