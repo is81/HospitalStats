@@ -1,9 +1,18 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, watchEffect } from 'vue';
 import { useAuthStore } from '../stores/auth';
 import { ElMessage } from 'element-plus';
+import { enterpriseBranding } from '../plugins/enterpriseMenus';
 
 const authStore = useAuthStore();
+
+// 企业版品牌：浏览器标题（登录页不走 MainLayout，需单独设置）
+watchEffect(() => {
+  const base = '医院数据统计平台';
+  document.title = enterpriseBranding.titleSuffix
+    ? `${base} · ${enterpriseBranding.titleSuffix}`
+    : base;
+});
 const username = ref('');
 const password = ref('');
 const loading = ref(false);
@@ -37,8 +46,8 @@ async function handleLogin() {
       <div class="login-header">
         <img src="/logo.png" alt="logo" class="logo-img" />
         <div class="login-title">
-          <h2>医院数据统计平台</h2>
-          <p class="subtitle">Hospital Statistics Platform</p>
+          <h2>医院数据统计平台<sup v-if="enterpriseBranding.badge" class="enterprise-badge">{{ enterpriseBranding.badge }}</sup></h2>
+          <p class="subtitle">Hospital Statistics Platform{{ enterpriseBranding.titleSuffix ? ' · Enterprise' : '' }}</p>
         </div>
       </div>
       <el-form @submit.prevent="handleLogin" label-width="0">
@@ -59,7 +68,7 @@ async function handleLogin() {
         </el-form-item>
       </el-form>
       <div class="login-footer" @click="showVersion = true">
-        Design by 信息科 ZT
+        {{ enterpriseBranding.designBy || 'Design by 信息科 ZT' }}
       </div>
     </div>
   </div>
@@ -158,6 +167,14 @@ async function handleLogin() {
   transition: color 0.2s;
 }
 .login-footer:hover { color: #2dd4bf; }
+.enterprise-badge {
+  color: #2dd4bf;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  margin-left: 2px;
+  vertical-align: super;
+}
 .version-link { color: #94a3b8; text-decoration: none; }
 .version-content { display: flex; flex-direction: column; gap: 24px; padding: 8px 16px 4px; }
 .version-block { position: relative; padding-left: 20px; border-left: 2px solid #e2e8f0; }

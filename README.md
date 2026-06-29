@@ -1,6 +1,8 @@
-# 医院数据统计平台
+# 医院数据统计平台<sup style="color:#2dd4bf;font-size:12px;font-weight:600;margin-left:4px">社区版</sup>
 
-面向医院 HIS 系统的数据查询与统计平台，支持 Oracle 10g/11g（含 US7ASCII 字符集），提供 SQL 导入、UNION 复杂查询、动态筛选、ECharts 运营数据等功能。
+面向医院 HIS 系统的数据查询与统计平台。**社区版**，MIT 开源，永久免费。支持 Oracle 10g/11g（含 US7ASCII 字符集），提供 SQL 导入、UNION 复杂查询、动态筛选、ECharts 运营数据等功能。
+
+> 💡 如需交叉表、下钻联动、定时报告、DRG/DIP 分析、SSO/LDAP 等高级功能，请了解 [企业版](https://github.com/is81/HospitalStats)（联系项目所有者获取）。
 
 ## 技术栈
 
@@ -52,6 +54,8 @@ HospitalStats/
 ├── deploy/                        # 部署脚本和发布输出
 ├── docs/                          # 本地文档（不上传）
 ├── LICENSE                        # MIT 许可证
+├── CLA.md                         # 贡献者许可协议
+├── CONTRIBUTING.md                # 贡献指南
 └── README.md
 ```
 
@@ -116,6 +120,14 @@ cd deploy/publish && dotnet HospitalStats.Api.dll --urls http://0.0.0.0:5000
 | `ALL_TABLES` / `ALL_TAB_COLUMNS` 扫描 | `GetSchemaMetadata(conn)` |
 
 改动范围：后端约 5-6 天（加首个新库），前端零改动。现有 Oracle 用户不受影响。
+
+## 参与贡献
+
+社区版处于维护模式——仅接受 Bug 修复和文档改进，新功能请贡献到企业版。提交 PR 前请阅读：
+
+- [贡献指南 (CONTRIBUTING.md)](CONTRIBUTING.md) — 开发环境、分支策略、代码风格
+- [贡献者许可协议 (CLA.md)](CLA.md) — 提交 PR 前需同意
+- [企业版开发规范](docs/企业版开发规范.md) — 社区版与企业版代码隔离说明
 
 ## 许可证
 

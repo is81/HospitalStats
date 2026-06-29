@@ -9,6 +9,7 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/',
+    name: 'MainLayout',
     component: () => import('../layout/MainLayout.vue'),
     redirect: '/query/preview',
     children: [

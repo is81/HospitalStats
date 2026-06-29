@@ -1,12 +1,21 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watchEffect } from 'vue';
 import { useRoute } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { useAuthStore } from '../stores/auth';
 import { authApi } from '../api/auth';
+import { enterpriseMenuItems, enterpriseBranding } from '../plugins/enterpriseMenus';
 
 const route = useRoute();
 const authStore = useAuthStore();
+
+// 企业版品牌：浏览器标题
+watchEffect(() => {
+  const base = '医院数据统计平台';
+  document.title = enterpriseBranding.titleSuffix
+    ? `${base} · ${enterpriseBranding.titleSuffix}`
+    : base;
+});
 
 const isCollapsed = ref(false);
 
@@ -71,8 +80,10 @@ async function handleChangePassword() {
     <el-aside :width="isCollapsed ? '64px' : '220px'" class="app-sidebar">
       <div class="logo">
         <img src="/mini_logo.png" class="logo-img" alt="logo" />
-        <el-tooltip content="Design by 信息科 ZT" placement="bottom" :offset="4" effect="dark" popper-class="logo-tip">
-          <span v-show="!isCollapsed" class="logo-title">医院数据统计平台</span>
+        <el-tooltip :content="enterpriseBranding.designBy || 'Design by 信息科 ZT'" placement="bottom" :offset="4" effect="dark" popper-class="logo-tip">
+          <span v-show="!isCollapsed" class="logo-title">医院数据统计平台
+          <sup v-if="enterpriseBranding.badge" class="enterprise-badge">{{ enterpriseBranding.badge }}</sup>
+        </span>
         </el-tooltip>
       </div>
       <div class="menu-scroll">
@@ -119,6 +130,14 @@ async function handleChangePassword() {
           <el-menu-item index="/admin/roles">角色管理</el-menu-item>
           <el-menu-item index="/admin/settings">配置管理</el-menu-item>
           <el-menu-item index="/admin/history">查询历史</el-menu-item>
+          <el-menu-item
+            v-for="item in enterpriseMenuItems"
+            :key="item.path"
+            :index="item.path"
+          >
+            <el-icon v-if="item.icon"><component :is="item.icon" /></el-icon>
+            <span>{{ item.label }}</span>
+          </el-menu-item>
         </el-sub-menu>
       </el-menu>
     </div>
@@ -262,6 +281,14 @@ async function handleChangePassword() {
   letter-spacing: 0.05em;
   line-height: 1.3;
   white-space: nowrap;
+}
+.enterprise-badge {
+  color: #2dd4bf;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  margin-left: 2px;
+  vertical-align: super;
 }
 :deep(.el-menu) {
   border-right: none;

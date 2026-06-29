@@ -1,5 +1,17 @@
 # Changelog
 
+## v2.1 (2026-06)
+
+### 重要
+- **社区版进入维护模式**：仅接受 Bug 修复和文档改进，新功能全部移至企业版
+- 新增扩展接口层（`Extensions/`）：`IReportScheduler`、`IDashboardExtension`、`IDataAnalyzer`、`IAuthProvider`、`ILicenseValidator`
+- 新增 CLA（贡献者许可协议）+ CONTRIBUTING（贡献指南）
+
+### 文档
+- 新增 `docs/企业版开发规范.md`
+- 新增 `docs/ROADMAP.md`（社区版/企业版路线图）
+- README 标注社区版定位，引导企业版
+
 ## v2.0 (2026-06)
 
 ### 新增

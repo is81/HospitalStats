@@ -1,6 +1,8 @@
-# Hospital Statistics Platform
+# Hospital Statistics Platform <sup style="color:#2dd4bf;font-size:12px;font-weight:600;margin-left:4px">Community</sup>
 
-A data query and statistics platform for hospital HIS systems. Supports Oracle 10g/11g (including US7ASCII charset), SQL import, UNION complex queries, dynamic filtering, and ECharts dashboards.
+A data query and statistics platform for hospital HIS systems. **Community Edition**, MIT open source, free forever. Supports Oracle 10g/11g (including US7ASCII charset), SQL import, UNION complex queries, dynamic filtering, and ECharts dashboards.
+
+> 💡 For advanced features like pivot tables, drill-down, scheduled reports, DRG/DIP analysis, or SSO/LDAP integration, check out the [Enterprise Edition](https://github.com/is81/HospitalStats) (contact the project owner).
 
 ## Tech Stack
 
@@ -52,6 +54,8 @@ HospitalStats/
 ├── deploy/                        # Deployment scripts & publish output
 ├── docs/                          # Local documentation (not uploaded)
 ├── LICENSE                        # MIT License
+├── CLA.md                         # Contributor License Agreement
+├── CONTRIBUTING.md                # Contribution guide
 └── README.md
 ```
 
@@ -116,6 +120,14 @@ Currently Oracle-only, but the architecture supports extension to other database
 | `ALL_TABLES` / `ALL_TAB_COLUMNS` scanning | `GetSchemaMetadata(conn)` |
 
 Effort: ~5-6 days backend for the first new database, zero frontend changes. Existing Oracle users unaffected.
+
+## Contributing
+
+Community Edition is in maintenance mode — only bug fixes and documentation improvements are accepted. New features belong in the Enterprise Edition. Before submitting a PR:
+
+- [Contribution Guide (CONTRIBUTING.md)](CONTRIBUTING.md) — dev setup, branch strategy, code style
+- [Contributor License Agreement (CLA.md)](CLA.md) — must be agreed before PR submission
+- [Enterprise Development Guide (中文)](docs/企业版开发规范.md) — community/enterprise code isolation rules
 
 ## License
 
