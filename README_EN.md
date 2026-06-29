@@ -129,6 +129,11 @@ Community Edition is in maintenance mode — only bug fixes and documentation im
 - [Contributor License Agreement (CLA.md)](CLA.md) — must be agreed before PR submission
 - [Enterprise Development Guide (中文)](docs/企业版开发规范.md) — community/enterprise code isolation rules
 
+## Contact
+
+- Email: [is81@qq.com](mailto:is81@qq.com)
+- For Enterprise Edition inquiries and business cooperation, please reach out via email
+
 ## License
 
 MIT License
