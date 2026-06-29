@@ -127,8 +127,6 @@ cd deploy/publish && dotnet HospitalStats.Api.dll --urls http://0.0.0.0:5000
 
 - [贡献指南 (CONTRIBUTING.md)](CONTRIBUTING.md) — 开发环境、分支策略、代码风格
 - [贡献者许可协议 (CLA.md)](CLA.md) — 提交 PR 前需同意
-- [企业版开发规范](docs/企业版开发规范.md) — 社区版与企业版代码隔离说明
-
 ## 联系方式
 
 - 邮箱：[is81@qq.com](mailto:is81@qq.com)
