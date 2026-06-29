@@ -2,9 +2,12 @@ import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import legacy from '@vitejs/plugin-legacy';
 import path from 'path';
+import fs from 'fs';
 
-// 企业版前端源码路径（开发时加载企业版组件，生产构建时忽略）
+// 企业版前端源码路径（存在则加载企业版组件，否则用空 stub）
 const enterpriseSrc = path.resolve(__dirname, '../../HospitalStats-Enterprise/frontend/src');
+const enterpriseFallback = path.resolve(__dirname, 'src/plugins/enterpriseStub.ts');
+const hasEnterprise = fs.existsSync(enterpriseSrc);
 
 export default defineConfig({
   plugins: [
@@ -17,16 +20,15 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@enterprise': enterpriseSrc,
+      '@enterprise': hasEnterprise ? enterpriseSrc : enterpriseFallback,
     },
   },
   server: {
     port: 5173,
     fs: {
-      // 允许 Vite 加载企业版前端源码（位于项目目录外）
       allow: [
         path.resolve(__dirname, '.'),
-        path.resolve(__dirname, '../../HospitalStats-Enterprise/frontend'),
+        ...(hasEnterprise ? [path.resolve(__dirname, '../../HospitalStats-Enterprise/frontend')] : []),
       ],
     },
     proxy: {
