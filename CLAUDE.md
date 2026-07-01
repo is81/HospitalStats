@@ -119,6 +119,35 @@ dotnet test
 
 **医院数据统计平台**：Vue 3 前端 → .NET 8 API → Oracle 10g/11g 数据源 + SQLite 配置库。生产环境为 Oracle 11g（11.04）。
 
+### 项目分层（2026-07-01 重构后）
+
+```
+HospitalStats.QueryEngine (独立类库，NuGet 可发布)
+  ├── IQueryEngine.cs              — 查询引擎公共接口
+  ├── QueryEngine.cs               — 核心实现（~1100 行）：SQL 生成 + Oracle 执行 + hex 解码
+  ├── EncodingHelper.cs            — US7ASCII 编码工具（public static）
+  └── Models/EngineModels.cs       — 纯 POCO（QueryEngineRequest, QueryEngineResult 等）
+  依赖：Dapper, Oracle.ManagedDataAccess.Core, ClosedXML, ILogger
+  零 ASP.NET / 零 EF Core / 零 IHttpContextAccessor
+
+HospitalStats.Api (社区版 Web 应用)
+  ├── Controllers/                 — 8 个控制器
+  ├── Services/                    — DataSourceService, MetaScannerService, SqlParsingService, SystemSettingsService
+  ├── Abstractions/                — 抽象接口：ICurrentUserContext
+  ├── Adapters/                    — 适配器层：
+  │     ├── EngineRequestBuilder   — EF QueryConfig → EngineRequest POCO 映射
+  │     ├── HistoryRecorder        — 查询历史记录（fire-and-forget）
+  │     └── HttpCurrentUserContext — IHttpContextAccessor → ICurrentUserContext
+  ├── Extensions/                  — 企业版插件接口（ILicenseValidator, IReportScheduler 等）
+  ├── Data/AppDbContext.cs          — EF Core 上下文（SQLite 配置库）
+  ├── Models/                      — EF 实体模型
+  └── DTOs/                        — 请求/响应 DTO
+  依赖：HospitalStats.QueryEngine (ProjectReference)
+
+HospitalStats.Enterprise (企业版，私有仓库)
+  └── ProjectReference → HospitalStats.Api (间接获得引擎)
+```
+
 ### 双数据库设计
 
 - **SQLite** (`config.db`，位于 API 项目根目录)：存储所有配置——用户、角色、数据源（连接串加密存储）、扫描的元数据（MetaTable/MetaColumn）、查询配置、菜单。默认管理员 `admin`，密码随机生成，首次启动时打印到控制台。由 `Program.cs` 种子逻辑创建。使用 `EnsureCreated()` 而非 Migration，新增字段需手动 `ALTER TABLE`。
@@ -132,17 +161,25 @@ dotnet test
   - `DataSourcesController` — 数据源 CRUD + 连接测试
   - `MetaController` — 扫描的元数据表/字段浏览
   - `QueryController` — 菜单树 + 查询配置 CRUD + SQL 解析
-  - `QueryExecuteController` — 执行查询 + 导出 Excel
-  - `DashboardController` — 运营数据卡片配置
+  - `QueryExecuteController` — 执行查询 + 导出 Excel（调用 `IQueryEngine`）
+  - `DashboardController` — 运营数据卡片配置（调用 `IQueryEngine`）
   - `SettingsController` — 系统设置（超时时间、行数限制）
 - `Services/`:
   - `DataSourceService` — 数据源 CRUD + AES-CBC 加密/解密连接串（SHA256 密钥，零 IV）
   - `MetaScannerService` — 扫描 Oracle 库表结构（`ALL_TABLES`、`ALL_TAB_COLUMNS`）填充 MetaTable/MetaColumn
-  - `QueryExecutionService` — 动态 SQL 生成与执行。**优先使用 RawSql**：将原始 SQL 包裹为 `SELECT COUNT(*) FROM (<rawSql>) "_cnt"` 做计数，`SELECT * FROM (SELECT t.*, ROWNUM rn FROM (<rawSql>) t WHERE ROWNUM <= :endRow) WHERE rn >= :startRow` 做分页。无 RawSql 时才从配置部件拼装 SQL（fields→SELECT，joins→按表分组合并 ON 条件，filters→带参数化运算符的 WHERE）。支持 `NOT LIKE`/`NOT IN`/`NOT BETWEEN`
-  - `SqlParsingService` — 基于正则的 Oracle SQL 解析器：提取 SELECT 列、FROM 表、WHERE 筛选条件（含 `NOT LIKE`/`NOT IN`/`NOT BETWEEN`）、简单 JOIN 条件（仅 `别名.列 = 别名.列`）、GROUP BY、ORDER BY。**函数包裹的 JOIN 条件**（如 `to_char(a.date)=to_char(b.date)`）解析器无法识别，依赖 RawSql 原样执行保证结果正确
+  - `SqlParsingService` — 基于正则的 Oracle SQL 解析器：提取 SELECT 列、FROM 表、WHERE 筛选条件（含 `NOT LIKE`/`NOT IN`/`NOT BETWEEN`）、简单 JOIN 条件（仅 `别名.列 = 别名.列`）、GROUP BY、ORDER BY
+  - `SystemSettingsService` — 键值设置服务（内存缓存 + SQLite 持久化）
+  - `EncodingHelper` — US7ASCII 编码工具（已于 2026-07-01 提取为 `HospitalStats.QueryEngine.EncodingHelper`，社区版通过引擎引用获取）
+- `Abstractions/`:
+  - `ICurrentUserContext` — 用户上下文抽象（解耦 IHttpContextAccessor），返回 `Dictionary<string,string>` 供引擎的 ContextValues 使用
+- `Adapters/`:
+  - `EngineRequestBuilder` — 将 EF 加载的 QueryConfig + 解密连接串 + 系统设置 → 构建 `QueryEngineRequest` POCO
+  - `HistoryRecorder` — 查询执行后异步记录历史（fire-and-forget，使用 IServiceScopeFactory）
+  - `HttpCurrentUserContext` — `ICurrentUserContext` 的 ASP.NET 实现（从 JWT Claims 提取 UserId/DeptName）
 - `Data/AppDbContext.cs` — EF Core 上下文，15 个 DbSet，完整关系配置（唯一索引、级联行为）
 - `Models/` — 13 个实体模型，对应 SQLite 表结构
 - `DTOs/QueryDto.cs` — 所有请求/响应 DTO，含 SQL 导入相关类型
+- `Extensions/` — 企业版插件接口定义（ILicenseValidator, IReportScheduler, IDashboardExtension, IDataAnalyzer, IAuthProvider）
 
 ### 认证与授权
 

@@ -36,8 +36,14 @@
 find-skills/
 CLAUDE.md
 
-# Docs (local only)
+# Deployment outputs
+deploy/
+
+# Docs (local only, not uploaded to Git)
 docs/
+
+# Claude Code
+.claude/
 
 # OS
 .DS_Store

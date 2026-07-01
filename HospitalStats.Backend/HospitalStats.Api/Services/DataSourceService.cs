@@ -281,8 +281,8 @@ public class DataSourceService
         return values
             .Where(v => v != null)
             .Select(v => useHexEncoding
-                ? QueryExecutionService.DecodeHexString(v!, charSetOverride)
-                : QueryExecutionService.ConvertEncoding(v!, charSetOverride))
+                ? EncodingHelper.DecodeHexString(v!, charSetOverride)
+                : EncodingHelper.ConvertEncoding(v!, charSetOverride))
             .ToList();
     }
 

@@ -1,7 +1,9 @@
+using HospitalStats.Api.Adapters;
 using HospitalStats.Api.Data;
 using HospitalStats.Api.DTOs;
 using HospitalStats.Api.Models;
 using HospitalStats.Api.Services;
+using HospitalStats.QueryEngine;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -14,15 +16,18 @@ namespace HospitalStats.Api.Controllers;
 public class DashboardController : ControllerBase
 {
     private readonly AppDbContext _db;
-    private readonly QueryExecutionService _executor;
+    private readonly IQueryEngine _engine;
+    private readonly EngineRequestBuilder _requestBuilder;
     private readonly SystemSettingsService _settings;
     private readonly ILogger<DashboardController> _logger;
 
-    public DashboardController(AppDbContext db, QueryExecutionService executor,
+    public DashboardController(AppDbContext db, IQueryEngine engine,
+        EngineRequestBuilder requestBuilder,
         SystemSettingsService settings, ILogger<DashboardController> logger)
     {
         _db = db;
-        _executor = executor;
+        _engine = engine;
+        _requestBuilder = requestBuilder;
         _settings = settings;
         _logger = logger;
     }
@@ -96,10 +101,8 @@ public class DashboardController : ControllerBase
                     else _logger.LogWarning("Dashboard card '{Title}': no LT date filter found for dateTo", card.Title);
                 }
 
-                var queryResult = await _executor.ExecuteAsync(
-                    card.QueryConfigId.Value,
-                    filterDict,
-                    1, 100, recordHistory: false);
+                var engineReq = await _requestBuilder.BuildAsync(card.QueryConfigId.Value, filterDict, 1, 100);
+                var queryResult = await _engine.ExecuteAsync(engineReq);
 
                 if (card.DisplayType == "number" && queryResult.Rows.Count > 0)
                 {
@@ -119,7 +122,8 @@ public class DashboardController : ControllerBase
                         {
                             try
                             {
-                                var prevResult = await _executor.ExecuteAsync(card.QueryConfigId.Value, prevFilterDict, 1, 1, recordHistory: false);
+                                var prevReq = await _requestBuilder.BuildAsync(card.QueryConfigId.Value, prevFilterDict, 1, 1);
+                                var prevResult = await _engine.ExecuteAsync(prevReq);
                                 if (prevResult.Rows.Count > 0)
                                 {
                                     var prevRow = prevResult.Rows[0];

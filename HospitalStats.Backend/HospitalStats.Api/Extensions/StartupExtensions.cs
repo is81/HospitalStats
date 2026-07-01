@@ -1,7 +1,10 @@
 using System.Text;
+using HospitalStats.Api.Abstractions;
+using HospitalStats.Api.Adapters;
 using HospitalStats.Api.Data;
 using HospitalStats.Api.Middleware;
 using HospitalStats.Api.Services;
+using HospitalStats.QueryEngine;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -70,9 +73,14 @@ public static class StartupExtensions
 
         // 业务服务
         builder.Services.AddHttpContextAccessor();
+        builder.Services.AddScoped<ICurrentUserContext, HttpCurrentUserContext>();
+        // 独立查询引擎（零 ASP.NET 依赖）
+        builder.Services.AddSingleton<IQueryEngine, HospitalStats.QueryEngine.QueryEngine>();
+        // 适配器
+        builder.Services.AddScoped<EngineRequestBuilder>();
+        builder.Services.AddScoped<HistoryRecorder>();
         builder.Services.AddScoped<DataSourceService>();
         builder.Services.AddScoped<MetaScannerService>();
-        builder.Services.AddScoped<QueryExecutionService>();
         builder.Services.AddScoped<SqlParsingService>();
         builder.Services.AddSingleton<SystemSettingsService>();
         builder.Services.AddMemoryCache();

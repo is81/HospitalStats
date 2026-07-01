@@ -1,5 +1,6 @@
+using HospitalStats.Api.Adapters;
 using HospitalStats.Api.Data;
-using HospitalStats.Api.Services;
+using HospitalStats.QueryEngine;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,13 +12,21 @@ namespace HospitalStats.Api.Controllers;
 [Authorize]
 public class QueryExecuteController : ControllerBase
 {
-    private readonly QueryExecutionService _executor;
+    private readonly IQueryEngine _engine;
+    private readonly EngineRequestBuilder _requestBuilder;
+    private readonly HistoryRecorder _historyRecorder;
     private readonly AppDbContext _db;
     private readonly ILogger<QueryExecuteController> _logger;
 
-    public QueryExecuteController(QueryExecutionService executor, AppDbContext db, ILogger<QueryExecuteController> logger)
+    public QueryExecuteController(IQueryEngine engine,
+        EngineRequestBuilder requestBuilder,
+        HistoryRecorder historyRecorder,
+        AppDbContext db,
+        ILogger<QueryExecuteController> logger)
     {
-        _executor = executor;
+        _engine = engine;
+        _requestBuilder = requestBuilder;
+        _historyRecorder = historyRecorder;
         _db = db;
         _logger = logger;
     }
@@ -27,7 +36,8 @@ public class QueryExecuteController : ControllerBase
     {
         try
         {
-            var values = await _executor.GetDistinctValuesAsync(configId, filterId);
+            var request = await _requestBuilder.BuildDistinctValuesAsync(configId, filterId);
+            var values = await _engine.GetDistinctValuesAsync(request);
             return Ok(values);
         }
         catch (Exception ex)
@@ -38,17 +48,24 @@ public class QueryExecuteController : ControllerBase
     }
 
     [HttpPost("{configId}")]
-    public async Task<ActionResult<QueryResult>> Execute(
+    public async Task<ActionResult<QueryEngineResult>> Execute(
         int configId,
         [FromBody] QueryExecuteRequest request)
     {
         try
         {
-            var result = await _executor.ExecuteAsync(
-                configId,
-                request.Filters ?? new Dictionary<string, string>(),
-                request.Page ?? 1,
-                request.PageSize);
+            var filters = request.Filters ?? new Dictionary<string, string>();
+            var page = request.Page ?? 1;
+            var pageSize = request.PageSize ?? 50;
+
+            var engineRequest = await _requestBuilder.BuildAsync(configId, filters, page, pageSize);
+            var result = await _engine.ExecuteAsync(engineRequest);
+
+            // Record history (fire-and-forget, never blocks response)
+            _historyRecorder.Record(configId,
+                engineRequest.MainTable?.TableName ?? "",
+                result.Total, result.ElapsedMs, filters);
+
             return Ok(result);
         }
         catch (ArgumentException ex)
@@ -70,9 +87,9 @@ public class QueryExecuteController : ControllerBase
     {
         try
         {
-            var bytes = await _executor.ExportExcelAsync(
-                configId,
-                request.Filters ?? new Dictionary<string, string>());
+            var filters = request.Filters ?? new Dictionary<string, string>();
+            var engineRequest = await _requestBuilder.BuildAsync(configId, filters, 1, int.MaxValue);
+            var bytes = await _engine.ExportExcelAsync(engineRequest);
 
             return File(bytes,
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -84,6 +101,7 @@ public class QueryExecuteController : ControllerBase
             return BadRequest(new { message = $"导出失败: {ex.Message}" });
         }
     }
+
     [HttpGet("history")]
     [Authorize(Roles = "admin")]
     public async Task<ActionResult> GetHistory([FromQuery] int limit = 20)

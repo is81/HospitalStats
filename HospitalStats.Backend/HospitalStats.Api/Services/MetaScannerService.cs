@@ -133,8 +133,8 @@ public class MetaScannerService
             TableName = t.TABLE_NAME,
             SchemaName = t.OWNER,
             Description = useHexEncoding
-                ? QueryExecutionService.DecodeHexString(t.COMMENTS ?? "", charSetOverride)
-                : QueryExecutionService.ConvertEncoding(t.COMMENTS ?? "", charSetOverride),
+                ? EncodingHelper.DecodeHexString(t.COMMENTS ?? "", charSetOverride)
+                : EncodingHelper.ConvertEncoding(t.COMMENTS ?? "", charSetOverride),
             IsView = false
         }).ToList();
     }
@@ -157,8 +157,8 @@ public class MetaScannerService
             TableName = t.TABLE_NAME,
             SchemaName = t.OWNER,
             Description = useHexEncoding
-                ? QueryExecutionService.DecodeHexString(t.COMMENTS ?? "", charSetOverride)
-                : QueryExecutionService.ConvertEncoding(t.COMMENTS ?? "", charSetOverride),
+                ? EncodingHelper.DecodeHexString(t.COMMENTS ?? "", charSetOverride)
+                : EncodingHelper.ConvertEncoding(t.COMMENTS ?? "", charSetOverride),
             IsView = true
         }).ToList();
     }
@@ -190,8 +190,8 @@ public class MetaScannerService
         foreach (var col in columns)
         {
             var comments = useHexEncoding
-                ? QueryExecutionService.DecodeHexString(col.COMMENTS ?? "", charSetOverride)
-                : QueryExecutionService.ConvertEncoding(col.COMMENTS ?? "", charSetOverride);
+                ? EncodingHelper.DecodeHexString(col.COMMENTS ?? "", charSetOverride)
+                : EncodingHelper.ConvertEncoding(col.COMMENTS ?? "", charSetOverride);
             existingColumns.TryGetValue(col.COLUMN_NAME, out var existing);
 
             if (existing != null)
