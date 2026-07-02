@@ -37,6 +37,7 @@ public class QueryEngine : IQueryEngine
     public async Task<QueryEngineResult> ExecuteAsync(QueryEngineRequest request, CancellationToken ct = default)
     {
         await EngineLicense.ValidateAsync();
+        EngineLicense.ValidateInstance(request.ConnectionString);
         var useHexEncoding = !string.IsNullOrEmpty(request.CharSetOverride);
 
         using var conn = new OracleConnection(request.ConnectionString);
@@ -184,6 +185,9 @@ public class QueryEngine : IQueryEngine
 
     public async Task<byte[]> ExportExcelAsync(QueryEngineRequest request, CancellationToken ct = default)
     {
+        await EngineLicense.ValidateAsync();
+        if (!EngineLicense.HasModule("export"))
+            throw new InvalidOperationException("当前 License 不包含 Excel 导出功能。请升级至高级版。");
         request.Page = 1;
         request.PageSize = request.Options.MaxRowCount;
         var result = await ExecuteAsync(request, ct);

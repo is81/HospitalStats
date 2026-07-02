@@ -48,9 +48,10 @@ public static class EngineLicense
     /// Generate license keys with the enterprise tools/GenerateLicense console app.
     /// </summary>
     /// <param name="licenseKey">The signed license key.</param>
-    public static void InitializeOffline(string licenseKey)
+    /// <param name="hmacSigningKey">The HMAC signing key. Must match the key used to generate licenses. Keep secret.</param>
+    public static void InitializeOffline(string licenseKey, string hmacSigningKey)
     {
-        BuiltInLicenseValidator.InitializeOffline(licenseKey);
+        BuiltInLicenseValidator.InitializeOffline(licenseKey, hmacSigningKey);
     }
 
     /// <summary>
@@ -119,6 +120,69 @@ public static class EngineLicense
                 return false;
             }
         }
+    }
+
+    /// <summary>
+    /// Check if a specific feature module is available under the current license.
+    /// Always returns true in AGPL mode (no validator configured).
+    /// </summary>
+    /// <param name="moduleName">Module name: "query", "export", "diagnose".</param>
+    public static bool HasModule(string moduleName)
+    {
+        if (_validator == null) return true; // AGPL mode — all features
+        return BuiltInLicenseValidator.HasModule(moduleName);
+    }
+
+    /// <summary>
+    /// Extract the Oracle instance identifier from a connection string.
+    /// Supports: Data Source=ORCL, Data Source=host:port/SID, TNS DESCRIPTIONS.
+    /// </summary>
+    public static string? ExtractInstance(string connectionString)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString)) return null;
+
+        // Try Data Source=xxx (most common)
+        var dsMatch = System.Text.RegularExpressions.Regex.Match(connectionString,
+            @"Data\s*Source\s*=\s*([^\s;\)]+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (dsMatch.Success)
+        {
+            var ds = dsMatch.Groups[1].Value.Trim();
+            // If it's host:port/SID, take the SID part
+            var slashIdx = ds.LastIndexOf('/');
+            return slashIdx >= 0 ? ds[(slashIdx + 1)..] : ds;
+        }
+
+        // Try SERVICE_NAME in TNS format
+        var svcMatch = System.Text.RegularExpressions.Regex.Match(connectionString,
+            @"SERVICE_NAME\s*=\s*([^\s;\)]+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (svcMatch.Success)
+            return svcMatch.Groups[1].Value.Trim();
+
+        return null;
+    }
+
+    /// <summary>
+    /// Validate that the current license covers this Oracle instance.
+    /// Throws if instance is not in the licensed list.
+    /// Always passes in AGPL mode or if license has "*" wildcard.
+    /// </summary>
+    internal static void ValidateInstance(string connectionString)
+    {
+        if (_validator == null) return; // AGPL mode
+        var license = BuiltInLicenseValidator.CurrentLicense;
+        if (license == null) return;
+
+        var instances = license.Instances;
+        if (instances.Length == 0) return; // No instance restriction
+        if (instances.Any(i => i == "*")) return; // Wildcard — all instances
+
+        var instance = ExtractInstance(connectionString);
+        if (instance == null) return; // Can't determine instance, allow
+
+        if (!instances.Contains(instance, StringComparer.OrdinalIgnoreCase))
+            throw new UnauthorizedAccessException(
+                $"当前 License 未授权此数据库实例 ({instance})。" +
+                $"授权实例: {string.Join(", ", instances)}。请联系 is81@qq.com 扩展授权。");
     }
 
     /// <summary>
