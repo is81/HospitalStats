@@ -5,8 +5,7 @@ using System.Text.Json.Serialization;
 
 namespace HospitalStats.QueryEngine;
 
-/// <summary>
-/// License information extracted from a valid license key.
+/// <summary>License information extracted from a valid license key.</summary>
 public record LicenseInfo(string LicensedTo, DateTime ExpiresAt, string Tier, string[] Modules, string[] Instances);
 
 /// <summary>
@@ -51,7 +50,7 @@ public static class BuiltInLicenseValidator
         // 1. Parse format: <payload>.<signature>
         var parts = licenseKey.Trim().Split('.');
         if (parts.Length != 2)
-            return (false, null, null, null, null,
+            return (false, null, null, null, null, null,
                 "License Key 格式无效，应为 <payload>.<signature>");
 
         // 2. Decode Base64
