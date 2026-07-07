@@ -138,4 +138,4 @@ MIT License
 
 ## 致谢
 
-本项目由 [Claude Code](https://claude.ai/code)（Anthropic）和 DeepSeek 大模型辅助开发。
+感谢所有为医疗信息化开源事业做出贡献的开发者。
