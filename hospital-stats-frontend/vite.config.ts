@@ -6,7 +6,7 @@ import fs from 'fs';
 
 // 企业版前端源码路径（存在则加载企业版组件，否则用空 stub）
 const enterpriseSrc = path.resolve(__dirname, '../../HospitalStats-Enterprise/frontend/src');
-const enterpriseFallback = path.resolve(__dirname, 'src/plugins/enterpriseStub.ts');
+const enterpriseFallback = path.resolve(__dirname, 'src/plugins/enterpriseStub');
 const hasEnterprise = fs.existsSync(enterpriseSrc);
 
 export default defineConfig({

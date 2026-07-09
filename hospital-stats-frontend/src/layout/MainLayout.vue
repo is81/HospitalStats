@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { useAuthStore } from '../stores/auth';
 import { authApi } from '../api/auth';
-import { enterpriseMenuItems, enterpriseBranding } from '../plugins/enterpriseMenus';
+import { enterpriseBranding, topEnterpriseItems, systemEnterpriseItems } from '../plugins/enterpriseMenus';
 
 const route = useRoute();
 const authStore = useAuthStore();
@@ -120,6 +120,27 @@ async function handleChangePassword() {
           <el-icon><DataAnalysis /></el-icon>
           <span>数据查询</span>
         </el-menu-item>
+        <!-- 企业版顶层菜单 -->
+        <template v-for="item in topEnterpriseItems" :key="item.label">
+          <el-sub-menu v-if="item.children" :index="item.label">
+            <template #title>
+              <el-icon v-if="item.icon"><component :is="item.icon" /></el-icon>
+              <span>{{ item.label }}</span>
+            </template>
+            <el-menu-item
+              v-for="child in item.children"
+              :key="child.path"
+              :index="child.path"
+            >
+              <el-icon v-if="child.icon"><component :is="child.icon" /></el-icon>
+              <span>{{ child.label }}</span>
+            </el-menu-item>
+          </el-sub-menu>
+          <el-menu-item v-else :index="item.path">
+            <el-icon v-if="item.icon"><component :is="item.icon" /></el-icon>
+            <span>{{ item.label }}</span>
+          </el-menu-item>
+        </template>
         <el-sub-menu index="/system" v-if="authStore.isAdmin">
           <template #title>
             <el-icon><Setting /></el-icon>
@@ -130,14 +151,26 @@ async function handleChangePassword() {
           <el-menu-item index="/admin/roles">角色管理</el-menu-item>
           <el-menu-item index="/admin/settings">配置管理</el-menu-item>
           <el-menu-item index="/admin/history">查询历史</el-menu-item>
-          <el-menu-item
-            v-for="item in enterpriseMenuItems"
-            :key="item.path"
-            :index="item.path"
-          >
-            <el-icon v-if="item.icon"><component :is="item.icon" /></el-icon>
-            <span>{{ item.label }}</span>
-          </el-menu-item>
+          <template v-for="item in systemEnterpriseItems" :key="item.label">
+            <el-sub-menu v-if="item.children" :index="item.label">
+              <template #title>
+                <el-icon v-if="item.icon"><component :is="item.icon" /></el-icon>
+                <span>{{ item.label }}</span>
+              </template>
+              <el-menu-item
+                v-for="child in item.children"
+                :key="child.path"
+                :index="child.path"
+              >
+                <el-icon v-if="child.icon"><component :is="child.icon" /></el-icon>
+                <span>{{ child.label }}</span>
+              </el-menu-item>
+            </el-sub-menu>
+            <el-menu-item v-else :index="item.path">
+              <el-icon v-if="item.icon"><component :is="item.icon" /></el-icon>
+              <span>{{ item.label }}</span>
+            </el-menu-item>
+          </template>
         </el-sub-menu>
       </el-menu>
     </div>
